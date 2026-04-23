@@ -1,13 +1,13 @@
 {
   "name": "Budget Tracker",
   "short_name": "Budget",
-  "start_url": "/My-Budget/"
+  "start_url": "/My-Budget/",
   "display": "standalone",
   "background_color": "#0a0a0a",
   "theme_color": "#0a0a0a",
   "icons": [
     {
-      "src": "https://cdn-icons-png.flaticon.com/512/2534/2534183.png",
+      "src": "icon.png", 
       "sizes": "512x512",
       "type": "image/png"
     }
