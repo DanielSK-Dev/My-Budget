@@ -211,8 +211,27 @@ function save() { try{localStorage.setItem(SK,JSON.stringify(S));}catch(e){} }
 // ── HELPERS ───────────────────────────────────────────────────────────────
 const fmt = n => '$' + Math.abs(parseFloat(n)||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
 const today = () => new Date().toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
-const nextWed = () => { const d=new Date(); d.setDate(d.getDate()+(3-d.getDay()+7)%7||7); return d.toLocaleDateString('en-US',{month:'short',day:'numeric'}); };
-const daysLeft = () => (3-new Date().getDay()+7)%7||7;
+// ── PAYDAY LOGIC (Bi-weekly) ─────────────────────────────────────────────
+const PAYDAY_REF = new Date('2026-04-22'); // Set this to your most recent payday
+
+function getPaydayInfo() {
+  const now = new Date();
+  const msInDay = 24 * 60 * 60 * 1000;
+  
+  // Calculate days since the reference payday
+  const diff = Math.floor((now - PAYDAY_REF) / msInDay);
+  
+  // Find how many 14-day cycles have passed, then find the next one
+  const cycles = Math.floor(diff / 14) + 1;
+  const next = new Date(PAYDAY_REF.getTime() + (cycles * 14 * msInDay));
+  
+  const days = Math.ceil((next - now) / msInDay);
+  
+  return {
+    date: next.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+    days: days
+  };
+}
 
 function toast(msg) {
   const el = document.getElementById('toast');
@@ -316,8 +335,7 @@ function renderHome() {
   return `
     <div class="page-header"><h1>Budget</h1></div>
     <div class="period-strip">
-      <div><div class="ps-label">Active period</div><div class="ps-date">Started ${cp.startDate} · next payday ${nextWed()} (${daysLeft()}d)</div></div>
-      <button class="arch-btn" onclick="archivePeriod()">Archive</button>
+      <div><div class="ps-label">Active period</div><div class="ps-date">Started ${cp.startDate} · next payday ${getPaydayInfo().date} (${getPaydayInfo().days}d)</div></div>      <button class="arch-btn" onclick="archivePeriod()">Archive</button>
     </div>
 
     <div class="card">
