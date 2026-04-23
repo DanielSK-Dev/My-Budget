@@ -121,12 +121,20 @@ select option{background:#1e1e1e}
 .income-big input{font-size:32px;font-family:var(--font-mono);font-weight:500;flex:1;background:none;border:none;border-bottom:2px solid var(--border);border-radius:0;padding:4px 0;transition:border-color .2s;outline:none}
 .income-big input:focus{border-color:var(--green)}
 
-.be-row{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border)}
+.be-row{display:flex;align-items:center;gap:8px;padding:9px 0;border-bottom:1px solid var(--border)}
 .be-row:last-child{border-bottom:none}
-.be-pip{width:4px;height:28px;border-radius:2px;flex-shrink:0}
-.be-name{flex:1;font-size:14px}
-.be-row input{width:88px;font-size:14px;padding:7px 10px;text-align:right;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:var(--font-mono)}
-.be-unit{font-size:11px;color:var(--muted);font-family:var(--font-mono);white-space:nowrap}
+.be-row input{font-size:14px;padding:7px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:var(--font-mono)}
+.be-row input.input-name { flex:1; text-align:left; font-family:var(--font); min-width:0; }
+.be-row input.input-num { width:70px; text-align:right; }
+
+/* Custom settings buttons and pickers */
+.color-picker { width:28px; height:28px; padding:0; border:none; border-radius:14px; cursor:pointer; background:none; flex-shrink:0; }
+.color-picker::-webkit-color-swatch-wrapper { padding: 0; }
+.color-picker::-webkit-color-swatch { border: 1px solid var(--border); border-radius: 14px; }
+.del-btn { background:none; border:none; color:var(--muted); font-size:22px; padding:0 4px; cursor:pointer; line-height:1; }
+.del-btn:active { color:var(--red); }
+.add-btn { width:100%; background:var(--surface2); border:1px dashed var(--border); color:var(--muted); padding:10px; border-radius:8px; margin-top:10px; cursor:pointer; font-family:var(--font); font-size: 14px; }
+.add-btn:active { background:var(--border); }
 
 @keyframes slideUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
 .card,.metrics,.cat-card{animation:slideUp .2s ease both}
@@ -161,15 +169,7 @@ select option{background:#1e1e1e}
 <div id="toast"></div>
 
 <script>
-// ── FIXED COSTS (auto-deducted each period, monthly ÷ 2) ──────────────────
-const FIXED_COSTS = [
-  {name:'Bouldering membership', monthly:86.13, cat:'fun'},
-  {name:'Claude AI subscription', monthly:20.00, cat:'subs'},
-  {name:'Car maintenance fund',   monthly:20.00, cat:'car'},
-  {name:'Clothing budget',        monthly:20.00, cat:'clothing'},
-];
-
-// ── CATEGORY DEFINITIONS ──────────────────────────────────────────────────
+// ── DEFAULTS (Initial load only) ──────────────────────────────────────────
 const DEFAULT_CATS = {
   food:     {label:'Food',          color:'#00c97a', monthly:40},
   gas:      {label:'Gas',           color:'#4d9fff', monthly:100},
@@ -182,6 +182,13 @@ const DEFAULT_CATS = {
   other:    {label:'Other',         color:'#555555', monthly:20},
 };
 
+const DEFAULT_FIXED = [
+  {name:'Bouldering membership', monthly:86.13, cat:'fun'},
+  {name:'Claude AI subscription', monthly:20.00, cat:'subs'},
+  {name:'Car maintenance fund',   monthly:20.00, cat:'car'},
+  {name:'Clothing budget',        monthly:20.00, cat:'clothing'},
+];
+
 // ── QUICK-ADD (variable, user-triggered) ──────────────────────────────────
 const QUICK_ITEMS = [
   {name:'Gas fillup',  amount:50,   cat:'gas'},
@@ -191,7 +198,7 @@ const QUICK_ITEMS = [
 
 // ── STATE ─────────────────────────────────────────────────────────────────
 const SK = 'budget_v5';
-let S = {currentPeriod:null, history:[], settings:{tithe:10, cats:{...DEFAULT_CATS}}};
+let S = {currentPeriod:null, history:[], settings:{tithe:10, cats:{...DEFAULT_CATS}, fixedCosts: []}};
 
 function load() {
   try {
@@ -199,9 +206,14 @@ function load() {
     if (r) {
       S = JSON.parse(r);
       if (!S.settings.cats) S.settings.cats = {...DEFAULT_CATS};
-      Object.keys(DEFAULT_CATS).forEach(k => {
-        if (!S.settings.cats[k]) S.settings.cats[k] = {...DEFAULT_CATS[k]};
-        else if (S.settings.cats[k].color === undefined) S.settings.cats[k].color = DEFAULT_CATS[k].color;
+    }
+    
+    // Backwards compatibility: Migrate old fixed costs to dynamic state if missing
+    if (!S.settings.fixedCosts || S.settings.fixedCosts.length === 0) {
+      S.settings.fixedCosts = DEFAULT_FIXED.map(f => {
+        // Fallback to category color to keep history visually similar
+        const catColor = S.settings.cats[f.cat]?.color || DEFAULT_CATS[f.cat]?.color || '#888888';
+        return { name: f.name, monthly: f.monthly, color: catColor };
       });
     }
   } catch(e){}
@@ -211,23 +223,17 @@ function save() { try{localStorage.setItem(SK,JSON.stringify(S));}catch(e){} }
 // ── HELPERS ───────────────────────────────────────────────────────────────
 const fmt = n => '$' + Math.abs(parseFloat(n)||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
 const today = () => new Date().toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+
 // ── PAYDAY LOGIC (Bi-weekly) ─────────────────────────────────────────────
 const PAYDAY_REF = new Date('2026/04/22'); // Set this to your most recent payday
 
 function getPaydayInfo() {
   const now = new Date();
-  // Set "now" to midnight local time to avoid "time of day" math errors
   const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const msInDay = 24 * 60 * 60 * 1000;
-  
-  // Calculate days since reference
   const diff = Math.floor((todayMidnight - PAYDAY_REF) / msInDay);
-  
-  // Find how many 14-day cycles have passed, then find the next one
   const cycles = Math.floor(diff / 14) + 1;
   const next = new Date(PAYDAY_REF.getTime() + (cycles * 14 * msInDay));
-  
-  // Calculate days remaining
   const days = Math.round((next - todayMidnight) / msInDay);
   
   return {
@@ -243,24 +249,21 @@ function toast(msg) {
 }
 
 // ── MATH ──────────────────────────────────────────────────────────────────
-const fixedPerPeriod = () => FIXED_COSTS.reduce((a,f)=>a+f.monthly/2, 0);
+const fixedPerPeriod = () => (S.settings.fixedCosts || []).reduce((a,f) => a + parseFloat(f.monthly || 0)/2, 0);
 const titheAmt = inc => inc * (S.settings.tithe/100);
 
-// Budget available for a category this period = (monthly/2) + carryover
 function catBudget(k) {
   const base = (S.settings.cats[k]?.monthly||0) / 2;
   const carry = S.currentPeriod?.carryover?.[k] || 0;
   return base + carry;
 }
 
-// How much of a category has been logged as expenses this period
 function catSpent(k) {
   return (S.currentPeriod?.expenses||[])
     .filter(e=>e.cat===k)
     .reduce((a,e)=>a+parseFloat(e.amount),0);
 }
 
-// Compute per-category carryover at end of period (positive remainder only)
 function computeCarryover(period) {
   const out = {};
   Object.keys(S.settings.cats).forEach(k => {
@@ -326,10 +329,9 @@ function renderHome() {
         </div>`;
       }).join('');
 
-  const fixedRows = FIXED_COSTS.map(f=>{
-    const c = S.settings.cats[f.cat]||{};
+  const fixedRows = (S.settings.fixedCosts || []).map(f=>{
     return `<div class="fixed-row">
-      <div class="pip" style="background:${c.color||'#555'};height:22px"></div>
+      <div class="pip" style="background:${f.color||'#555'};height:22px"></div>
       <div class="fixed-name">${f.name}</div>
       <div class="fixed-amt" style="color:var(--red)">−${fmt(f.monthly/2)}</div>
     </div>`;
@@ -383,7 +385,7 @@ function renderHome() {
 
     <div class="card">
       <div class="card-label">Fixed costs this period (auto-deducted)</div>
-      ${fixedRows}
+      ${fixedRows || '<div class="empty" style="padding:10px 0">No fixed costs</div>'}
     </div>
 
     <div class="card">
@@ -462,7 +464,10 @@ function renderHistory() {
   const hist = S.history||[];
   const all  = [...hist,...(S.currentPeriod?[S.currentPeriod]:[])];
   const tInc = all.reduce((a,p)=>a+parseFloat(p.income||0),0);
+  
+  // Re-calculate out based on fixedPerPeriod AT THE TIME if possible, but here we estimate with current fixed.
   const tOut = all.reduce((a,p)=>a+(p.expenses||[]).reduce((b,e)=>b+parseFloat(e.amount),0)+fixedPerPeriod()+titheAmt(parseFloat(p.income||0)),0);
+  
   const tSav = tInc-tOut;
   const avg  = tInc>0?Math.round(tSav/tInc*100):0;
 
@@ -492,22 +497,22 @@ function renderHistory() {
 // ── SETTINGS ──────────────────────────────────────────────────────────────
 function renderSettings() {
   const s = S.settings;
+  
   const catRows = Object.entries(s.cats).map(([k,c])=>`
     <div class="be-row">
-      <div class="be-pip" style="background:${c.color}"></div>
-      <div class="be-name">${c.label}</div>
-      <input type="number" value="${c.monthly||0}" placeholder="0" inputmode="decimal" min="0" step="1" onchange="setCat('${k}',this.value)"/>
-      <span class="be-unit">/mo</span>
+      <input type="color" class="color-picker" value="${c.color}" onchange="updateCat('${k}','color',this.value)" />
+      <input type="text" class="input-name" value="${c.label}" placeholder="Category" onchange="updateCat('${k}','label',this.value)" />
+      <input type="number" class="input-num" value="${c.monthly||0}" placeholder="0" inputmode="decimal" min="0" step="1" onchange="updateCat('${k}','monthly',this.value)"/>
+      <button class="del-btn" onclick="delCat('${k}')">×</button>
     </div>`).join('');
 
-  const fixedRows = FIXED_COSTS.map(f=>{
-    const c=s.cats[f.cat]||{};
-    return `<div class="fixed-row">
-      <div class="pip" style="background:${c.color||'#555'};height:22px"></div>
-      <div class="fixed-name">${f.name}</div>
-      <div class="fixed-amt">${fmt(f.monthly)}/mo</div>
-    </div>`;
-  }).join('');
+  const fixedRows = (s.fixedCosts || []).map((f, i)=>`
+    <div class="be-row">
+      <input type="color" class="color-picker" value="${f.color||'#888888'}" onchange="updateFixed(${i},'color',this.value)" />
+      <input type="text" class="input-name" value="${f.name}" placeholder="Fixed cost" onchange="updateFixed(${i},'name',this.value)" />
+      <input type="number" class="input-num" value="${f.monthly||0}" placeholder="0" inputmode="decimal" min="0" step="1" onchange="updateFixed(${i},'monthly',this.value)"/>
+      <button class="del-btn" onclick="delFixed(${i})">×</button>
+    </div>`).join('');
 
   return `
     <div class="page-header"><h1>Settings</h1></div>
@@ -519,16 +524,21 @@ function renderSettings() {
       </div>
       <div style="font-size:12px;color:var(--muted);margin-top:6px">Auto-deducted from each paycheck</div>
     </div>
+    
     <div class="card">
       <div class="card-label">Variable category budgets (monthly)</div>
       <div style="font-size:12px;color:var(--muted);margin-bottom:12px">Halved automatically each biweekly period. Leftover carries forward.</div>
       ${catRows}
+      <button class="add-btn" onclick="addCat()">+ Add Category</button>
     </div>
+    
     <div class="card">
       <div class="card-label">Fixed costs (auto-deducted every period)</div>
       <div style="font-size:12px;color:var(--muted);margin-bottom:10px">Monthly amount ÷ 2, deducted from every paycheck automatically.</div>
       ${fixedRows}
+      <button class="add-btn" onclick="addFixed()">+ Add Fixed Cost</button>
     </div>
+    
     <div class="card">
       <div class="card-label">Pay period</div>
       <div style="font-size:13px;color:var(--muted);margin-bottom:14px">Start a new period each Wednesday payday. Category leftovers carry forward automatically.</div>
@@ -542,6 +552,43 @@ function renderSettings() {
 }
 
 // ── ACTIONS ───────────────────────────────────────────────────────────────
+
+// Settings Actions
+function updateCat(k, field, val) {
+  if (field === 'monthly') S.settings.cats[k][field] = parseFloat(val) || 0;
+  else S.settings.cats[k][field] = val;
+  save(); 
+}
+
+function addCat() {
+  const id = 'cat_' + Date.now();
+  S.settings.cats[id] = { label: 'New Category', color: '#00e5a0', monthly: 0 };
+  save(); render();
+}
+
+function delCat(k) {
+  if (!confirm('Delete this category? Associated history items will lose their mapped color.')) return;
+  delete S.settings.cats[k];
+  save(); render();
+}
+
+function updateFixed(idx, field, val) {
+  if (field === 'monthly') S.settings.fixedCosts[idx][field] = parseFloat(val) || 0;
+  else S.settings.fixedCosts[idx][field] = val;
+  save();
+}
+
+function addFixed() {
+  S.settings.fixedCosts.push({ name: 'New Cost', monthly: 0, color: '#ffb347' });
+  save(); render();
+}
+
+function delFixed(idx) {
+  if (!confirm('Delete this fixed cost?')) return;
+  S.settings.fixedCosts.splice(idx, 1);
+  save(); render();
+}
+
 function setIncome(v) {
   if (!S.currentPeriod) return;
   S.currentPeriod.income = parseFloat(v)||0;
@@ -603,11 +650,6 @@ function quickAdd(i) {
   save(); toast(`Added: ${r.name}`); switchTab('home');
 }
 
-function setCat(k, v) {
-  S.settings.cats[k].monthly = parseFloat(v)||0;
-  save(); toast('Saved');
-}
-
 function setTithe(v) {
   const n = parseFloat(v);
   if (isNaN(n)||n<0||n>100) { toast('Enter 0–100'); return; }
@@ -616,7 +658,7 @@ function setTithe(v) {
 
 function resetAll() {
   if (!confirm('Delete ALL data permanently?')) return;
-  S = {currentPeriod:null, history:[], settings:{tithe:10, cats:{...DEFAULT_CATS}}};
+  S = {currentPeriod:null, history:[], settings:{tithe:10, cats:{...DEFAULT_CATS}, fixedCosts: DEFAULT_FIXED.map(f => ({...f, color: DEFAULT_CATS[f.cat]?.color || '#888'}))}};
   save(); render(); toast('All data cleared');
 }
 
