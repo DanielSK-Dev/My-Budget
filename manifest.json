@@ -2,12 +2,13 @@
   "name": "Budget Tracker",
   "short_name": "Budget",
   "start_url": "/My-Budget/",
+  "scope": "/My-Budget/",
   "display": "standalone",
   "background_color": "#0a0a0a",
   "theme_color": "#0a0a0a",
   "icons": [
     {
-      "src": "icon.png", 
+      "src": "icon.png",
       "sizes": "512x512",
       "type": "image/png"
     }
