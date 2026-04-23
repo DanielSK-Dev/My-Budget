@@ -212,20 +212,23 @@ function save() { try{localStorage.setItem(SK,JSON.stringify(S));}catch(e){} }
 const fmt = n => '$' + Math.abs(parseFloat(n)||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
 const today = () => new Date().toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
 // ── PAYDAY LOGIC (Bi-weekly) ─────────────────────────────────────────────
-const PAYDAY_REF = new Date('2026-04-22'); // Set this to your most recent payday
+const PAYDAY_REF = new Date('2026/04/22'); // Set this to your most recent payday
 
 function getPaydayInfo() {
   const now = new Date();
+  // Set "now" to midnight local time to avoid "time of day" math errors
+  const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const msInDay = 24 * 60 * 60 * 1000;
   
-  // Calculate days since the reference payday
-  const diff = Math.floor((now - PAYDAY_REF) / msInDay);
+  // Calculate days since reference
+  const diff = Math.floor((todayMidnight - PAYDAY_REF) / msInDay);
   
   // Find how many 14-day cycles have passed, then find the next one
   const cycles = Math.floor(diff / 14) + 1;
   const next = new Date(PAYDAY_REF.getTime() + (cycles * 14 * msInDay));
   
-  const days = Math.ceil((next - now) / msInDay);
+  // Calculate days remaining
+  const days = Math.round((next - todayMidnight) / msInDay);
   
   return {
     date: next.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
