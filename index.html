@@ -43,7 +43,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 .metric .val{font-size:20px;font-weight:500;font-family:var(--font-mono);letter-spacing:-.02em}
 .g{color:var(--green)}.r{color:var(--red)}.a{color:var(--amber)}
 
-.cat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px;margin-bottom:10px}
+.cat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);margin-bottom:10px}
 .cat-header{display:flex;align-items:center;gap:10px;margin-bottom:10px}
 .pip{width:4px;border-radius:2px;flex-shrink:0}
 .cat-name{font-size:15px;font-weight:500;flex:1}
@@ -137,7 +137,7 @@ select option{background:#1e1e1e}
 /* Details/Accordion Styling */
 details > summary { list-style: none; }
 details > summary::-webkit-details-marker { display: none; }
-.hist-exps-list { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); }
+.hist-exps-list { margin-top: 4px; padding-top: 10px; border-top: 1px solid var(--border); }
 .hist-exp-row { display: flex; justify-content: space-between; padding: 6px 0; font-size: 13px; border-bottom: 1px solid var(--surface); }
 .hist-exp-row:last-child { border-bottom: none; }
 
@@ -452,16 +452,34 @@ function renderCats() {
     const barCol  = pct>90?'var(--red)':pct>70?'var(--amber)':c.color;
     const remClass= rem<0?'r':rem<budget*0.25?'a':'g';
     const carry   = S.currentPeriod?.carryover?.[k]||0;
-    return `<div class="cat-card">
-      <div class="cat-header">
-        <div class="pip" style="background:${c.color};height:36px"></div>
-        <div class="cat-name">${c.label}</div>
-        <div class="cat-rem ${remClass}">${rem<0?'−':''}${fmt(rem)}</div>
+    
+    const catExps = (S.currentPeriod?.expenses||[]).filter(e=>e.cat===k);
+    const expsHtml = catExps.length === 0 
+      ? '<div style="padding:8px 0;color:var(--muted);font-size:12px">No transactions yet.</div>' 
+      : catExps.slice().reverse().map(e => `
+        <div class="hist-exp-row" style="border-bottom:1px solid var(--surface)">
+          <span style="color:var(--muted);margin-right:8px;font-family:var(--font-mono);font-size:10px">${e.date||''}</span>
+          <span style="flex:1">${e.name}</span>
+          <span style="font-family:var(--font-mono)">${fmt(e.amount)}</span>
+        </div>
+      `).join('');
+
+    return `<details class="cat-card" style="padding:0">
+      <summary style="padding:14px 16px;outline:none;cursor:pointer;display:block">
+        <div class="cat-header">
+          <div class="pip" style="background:${c.color};height:36px"></div>
+          <div class="cat-name">${c.label}</div>
+          <div class="cat-rem ${remClass}">${rem<0?'−':''}${fmt(rem)}</div>
+        </div>
+        <div class="prog-track"><div class="prog-fill" style="width:${pct}%;background:${barCol}"></div></div>
+        <div class="prog-labels"><span>${fmt(spent)} spent</span><span>${fmt(budget)} budget</span></div>
+        ${carry>0?`<div class="carry-tag">+ ${fmt(carry)} carried over from last period</div>`:''}
+      </summary>
+      <div class="hist-exps-list" style="padding:0 16px 14px; margin-top:0;">
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.06em;color:var(--muted);margin-bottom:6px;font-family:var(--font-mono)">Transactions this period</div>
+        ${expsHtml}
       </div>
-      <div class="prog-track"><div class="prog-fill" style="width:${pct}%;background:${barCol}"></div></div>
-      <div class="prog-labels"><span>${fmt(spent)} spent</span><span>${fmt(budget)} budget</span></div>
-      ${carry>0?`<div class="carry-tag">+ ${fmt(carry)} carried over from last period</div>`:''}
-    </div>`;
+    </details>`;
   }).join('');
 
   return `
