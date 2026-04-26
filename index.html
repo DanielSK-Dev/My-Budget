@@ -20,9 +20,9 @@
   --safe-bottom:env(safe-area-inset-bottom,0px);
 }
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
-html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--font);overflow:hidden}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--font);overflow:hidden;overscroll-behavior-y:none}
 #app{display:flex;flex-direction:column;height:100dvh}
-#screen{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;padding:20px 16px 16px}
+#screen{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;padding:20px 16px 16px;overscroll-behavior-y:contain}
 #screen::-webkit-scrollbar{display:none}
 
 #nav{display:flex;background:var(--surface);border-top:1px solid var(--border);padding-bottom:var(--safe-bottom);flex-shrink:0}
@@ -74,11 +74,12 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 
 .field{display:flex;flex-direction:column;gap:6px;margin-bottom:12px}
 .field label{font-size:11px;color:var(--muted);letter-spacing:.06em;font-family:var(--font-mono)}
-input[type=text],input[type=number],select{
+input[type=text],input[type=number],input[type=date],select{
   background:var(--surface2);border:1px solid var(--border);border-radius:8px;
   color:var(--text);font-family:var(--font);font-size:16px;padding:12px 14px;
   width:100%;outline:none;transition:border-color .2s;-webkit-appearance:none;
 }
+input[type=date]::-webkit-calendar-picker-indicator { filter: invert(1); opacity: 0.5; }
 input:focus,select:focus{border-color:var(--green)}
 select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23666' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 14px center;padding-right:36px}
 select option{background:#1e1e1e}
@@ -98,8 +99,6 @@ select option{background:#1e1e1e}
 .quick-btn{background:var(--surface2);border:1px solid var(--border);color:var(--green);border-radius:8px;padding:7px 14px;font-size:13px;font-weight:500;cursor:pointer;white-space:nowrap}
 .quick-btn:active{opacity:.7}
 
-.hist-item{display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid var(--border)}
-.hist-item:last-child{border-bottom:none}
 .badge{display:inline-block;font-size:10px;padding:2px 7px;border-radius:6px;font-family:var(--font-mono);margin-top:3px}
 .badge.g{background:var(--green-dim);color:var(--green)}
 .badge.r{background:var(--red-dim);color:var(--red)}
@@ -127,7 +126,6 @@ select option{background:#1e1e1e}
 .be-row input.input-name { flex:1; text-align:left; font-family:var(--font); min-width:0; }
 .be-row input.input-num { width:70px; text-align:right; }
 
-/* Custom settings buttons and pickers */
 .color-picker { width:28px; height:28px; padding:0; border:none; border-radius:14px; cursor:pointer; background:none; flex-shrink:0; }
 .color-picker::-webkit-color-swatch-wrapper { padding: 0; }
 .color-picker::-webkit-color-swatch { border: 1px solid var(--border); border-radius: 14px; }
@@ -135,6 +133,13 @@ select option{background:#1e1e1e}
 .del-btn:active { color:var(--red); }
 .add-btn { width:100%; background:var(--surface2); border:1px dashed var(--border); color:var(--muted); padding:10px; border-radius:8px; margin-top:10px; cursor:pointer; font-family:var(--font); font-size: 14px; }
 .add-btn:active { background:var(--border); }
+
+/* Details/Accordion Styling */
+details > summary { list-style: none; }
+details > summary::-webkit-details-marker { display: none; }
+.hist-exps-list { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); }
+.hist-exp-row { display: flex; justify-content: space-between; padding: 6px 0; font-size: 13px; border-bottom: 1px solid var(--surface); }
+.hist-exp-row:last-child { border-bottom: none; }
 
 @keyframes slideUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
 .card,.metrics,.cat-card{animation:slideUp .2s ease both}
@@ -169,36 +174,37 @@ select option{background:#1e1e1e}
 <div id="toast"></div>
 
 <script>
-// ── DEFAULTS (Initial load only) ──────────────────────────────────────────
+// ── GENERIC DEFAULTS (Initial load only) ──────────────────────────────────
 const DEFAULT_CATS = {
-  food:     {label:'Food',          color:'#00c97a', monthly:40},
-  gas:      {label:'Gas',           color:'#4d9fff', monthly:100},
-  fun:      {label:'Fun / hobbies', color:'#ffb347', monthly:0},
-  clothing: {label:'Clothing',      color:'#d4537e', monthly:0},
-  car:      {label:'Car',           color:'#888888', monthly:0},
-  subs:     {label:'Subscriptions', color:'#9f77dd', monthly:0},
-  tithe:    {label:'Tithe',         color:'#ff6b6b', monthly:0},
-  invest:   {label:'Investment',    color:'#00e5a0', monthly:0},
-  other:    {label:'Other',         color:'#555555', monthly:20},
+  groceries: {label:'Groceries',     color:'#00c97a', monthly:200},
+  trans:     {label:'Transportation',color:'#4d9fff', monthly:100},
+  fun:       {label:'Entertainment', color:'#ffb347', monthly:50},
+  other:     {label:'Other',         color:'#555555', monthly:50},
 };
 
 const DEFAULT_FIXED = [
-  {name:'Bouldering membership', monthly:86.13, cat:'fun'},
-  {name:'Claude AI subscription', monthly:20.00, cat:'subs'},
-  {name:'Car maintenance fund',   monthly:20.00, cat:'car'},
-  {name:'Clothing budget',        monthly:20.00, cat:'clothing'},
+  {name:'Gym Membership', monthly:40.00, color:'#ffb347'},
+  {name:'Streaming Sub',  monthly:15.00, color:'#9f77dd'},
 ];
 
-// ── QUICK-ADD (variable, user-triggered) ──────────────────────────────────
 const QUICK_ITEMS = [
-  {name:'Gas fillup',  amount:50,   cat:'gas'},
-  {name:'Groceries',   amount:20,   cat:'food'},
-  {name:'Tithe',       amount:null, cat:'tithe'},  // null = computed from income
+  {name:'Gas fillup',  amount:40,   cat:'trans'},
+  {name:'Groceries',   amount:50,   cat:'groceries'}
 ];
 
 // ── STATE ─────────────────────────────────────────────────────────────────
-const SK = 'budget_v5';
-let S = {currentPeriod:null, history:[], settings:{tithe:10, cats:{...DEFAULT_CATS}, fixedCosts: []}};
+const SK = 'budget_v7';
+let S = {
+  currentPeriod: null, 
+  history: [], 
+  settings: {
+    tithe: 10, 
+    payFreq: 'biweekly',
+    lastPayday: '', // YYYY-MM-DD
+    cats: {...DEFAULT_CATS}, 
+    fixedCosts: [...DEFAULT_FIXED]
+  }
+};
 
 function load() {
   try {
@@ -206,15 +212,17 @@ function load() {
     if (r) {
       S = JSON.parse(r);
       if (!S.settings.cats) S.settings.cats = {...DEFAULT_CATS};
+      if (!S.settings.payFreq) S.settings.payFreq = 'biweekly';
+      if (typeof S.settings.lastPayday === 'undefined') S.settings.lastPayday = '';
     }
     
-    // Backwards compatibility: Migrate old fixed costs to dynamic state if missing
+    // Add tithePaid tracking for existing periods if missing
+    if (S.currentPeriod && typeof S.currentPeriod.tithePaid === 'undefined') {
+      S.currentPeriod.tithePaid = false;
+    }
+
     if (!S.settings.fixedCosts || S.settings.fixedCosts.length === 0) {
-      S.settings.fixedCosts = DEFAULT_FIXED.map(f => {
-        // Fallback to category color to keep history visually similar
-        const catColor = S.settings.cats[f.cat]?.color || DEFAULT_CATS[f.cat]?.color || '#888888';
-        return { name: f.name, monthly: f.monthly, color: catColor };
-      });
+      S.settings.fixedCosts = [...DEFAULT_FIXED];
     }
   } catch(e){}
 }
@@ -224,22 +232,45 @@ function save() { try{localStorage.setItem(SK,JSON.stringify(S));}catch(e){} }
 const fmt = n => '$' + Math.abs(parseFloat(n)||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
 const today = () => new Date().toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
 
-// ── PAYDAY LOGIC (Bi-weekly) ─────────────────────────────────────────────
-const PAYDAY_REF = new Date('2026/04/22'); // Set this to your most recent payday
-
+// ── PAYDAY LOGIC (Dynamic) ───────────────────────────────────────────────
 function getPaydayInfo() {
+  if (!S.settings.lastPayday) return { date: 'Not set', days: '?' };
+  
+  // Parse last payday strictly as local timezone to avoid off-by-one shifts
+  const last = new Date(S.settings.lastPayday + 'T00:00:00');
   const now = new Date();
   const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const msInDay = 24 * 60 * 60 * 1000;
-  const diff = Math.floor((todayMidnight - PAYDAY_REF) / msInDay);
-  const cycles = Math.floor(diff / 14) + 1;
-  const next = new Date(PAYDAY_REF.getTime() + (cycles * 14 * msInDay));
-  const days = Math.round((next - todayMidnight) / msInDay);
   
-  return {
-    date: next.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-    days: days
-  };
+  if (S.settings.payFreq === 'monthly') {
+    let next = new Date(last);
+    while (next <= todayMidnight) {
+      next.setMonth(next.getMonth() + 1);
+    }
+    const days = Math.round((next - todayMidnight) / msInDay);
+    return { date: next.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }), days };
+  } else {
+    const interval = S.settings.payFreq === 'weekly' ? 7 : 14;
+    const diff = Math.floor((todayMidnight - last) / msInDay);
+    
+    // Calculate cycles. If today is exactly payday, diff is a multiple of interval.
+    const cycles = Math.max(0, Math.floor(diff / interval)) + (diff >= 0 ? 1 : 0);
+    const next = new Date(last.getTime() + (cycles * interval * msInDay));
+    
+    // If today is exactly payday
+    if (diff >= 0 && diff % interval === 0) {
+      return { date: todayMidnight.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }), days: 0 };
+    }
+    
+    const days = Math.round((next - todayMidnight) / msInDay);
+    return { date: next.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }), days };
+  }
+}
+
+function toggleTithe() {
+  if (!S.currentPeriod) return;
+  S.currentPeriod.tithePaid = !S.currentPeriod.tithePaid;
+  save(); render();
 }
 
 function toast(msg) {
@@ -298,7 +329,7 @@ function renderHome() {
   if (!cp) return `
     <div class="page-header"><h1>Budget</h1></div>
     <div class="card" style="text-align:center;padding:28px 16px">
-      <div style="font-size:13px;color:var(--muted);margin-bottom:16px">No active period.<br>Start one on payday Wednesday.</div>
+      <div style="font-size:13px;color:var(--muted);margin-bottom:16px">No active period.<br>Set your payday in settings and start a period!</div>
       <button class="btn btn-primary" onclick="startPeriod()">Start pay period</button>
     </div>`;
 
@@ -312,6 +343,7 @@ function renderHome() {
   const pct     = income>0 ? Math.min(100,Math.round(totalOut/income*100)) : 0;
   const rate    = income>0 ? Math.round(remaining/income*100) : null;
   const barCol  = pct>90?'var(--red)':pct>70?'var(--amber)':'var(--green)';
+  const payInfo = getPaydayInfo();
 
   const expRows = exps.length===0
     ? '<div class="empty">No variable expenses yet</div>'
@@ -337,10 +369,16 @@ function renderHome() {
     </div>`;
   }).join('');
 
+  const titheBtn = `<button onclick="toggleTithe()" style="background:none;border:1px solid ${cp.tithePaid?'var(--green)':'var(--border)'};color:${cp.tithePaid?'var(--green)':'var(--muted)'};border-radius:4px;padding:2px 6px;font-size:10px;cursor:pointer;margin-left:6px;font-family:var(--font);transition:all 0.15s">${cp.tithePaid?'✓ Paid':'Mark paid'}</button>`;
+
   return `
     <div class="page-header"><h1>Budget</h1></div>
     <div class="period-strip">
-      <div><div class="ps-label">Active period</div><div class="ps-date">Started ${cp.startDate} · next payday ${getPaydayInfo().date} (${getPaydayInfo().days}d)</div></div>      <button class="arch-btn" onclick="archivePeriod()">Archive</button>
+      <div>
+        <div class="ps-label">Active period</div>
+        <div class="ps-date">Started ${cp.startDate} · next payday ${payInfo.date} (${payInfo.days}d)</div>
+      </div>
+      <button class="arch-btn" onclick="archivePeriod()">Archive</button>
     </div>
 
     <div class="card">
@@ -362,7 +400,7 @@ function renderHome() {
       <div class="card-label">Breakdown</div>
       <div class="sum-row"><span class="sum-label">Gross income</span><span class="sum-val">${fmt(income)}</span></div>
       <div class="sum-row"><span class="sum-label">Fixed costs (auto)</span><span class="sum-val r">−${fmt(fixed)}</span></div>
-      <div class="sum-row"><span class="sum-label">Tithe (${S.settings.tithe}%)</span><span class="sum-val r">−${fmt(tithe)}</span></div>
+      <div class="sum-row"><span class="sum-label" style="display:flex;align-items:center">Tithe (${S.settings.tithe}%) ${titheBtn}</span><span class="sum-val r">−${fmt(tithe)}</span></div>
       <div class="sum-row"><span class="sum-label">Variable expenses</span><span class="sum-val a">−${fmt(varSpent)}</span></div>
       <div class="sum-row" style="border-top:1px solid var(--border);border-bottom:none;margin-top:4px;padding-top:12px">
         <span class="sum-label" style="font-weight:500;color:var(--text)">To invest</span>
@@ -433,14 +471,12 @@ function renderCats() {
 
 // ── ADD EXPENSE ───────────────────────────────────────────────────────────
 function renderLog() {
-  const income = parseFloat(S.currentPeriod?.income||0);
   const catOpts = Object.entries(S.settings.cats).map(([k,c])=>`<option value="${k}">${c.label}</option>`).join('');
   const quickRows = QUICK_ITEMS.map((r,i)=>{
-    const amt = r.amount===null ? titheAmt(income) : r.amount;
     const c = S.settings.cats[r.cat]||{};
     return `<div class="quick-item">
       <div class="pip" style="background:${c.color||'#555'};height:28px"></div>
-      <div class="quick-info"><div class="quick-name">${r.name}</div><div class="quick-sub">${c.label||r.cat} · ${fmt(amt)}</div></div>
+      <div class="quick-info"><div class="quick-name">${r.name}</div><div class="quick-sub">${c.label||r.cat} · ${fmt(r.amount)}</div></div>
       <button class="quick-btn" onclick="quickAdd(${i})">+ Add</button>
     </div>`;
   }).join('');
@@ -462,25 +498,49 @@ function renderLog() {
 // ── HISTORY ───────────────────────────────────────────────────────────────
 function renderHistory() {
   const hist = S.history||[];
-  const all  = [...hist,...(S.currentPeriod?[S.currentPeriod]:[])];
-  const tInc = all.reduce((a,p)=>a+parseFloat(p.income||0),0);
+  const all  = S.currentPeriod ? [...hist, S.currentPeriod] : hist;
   
-  // Re-calculate out based on fixedPerPeriod AT THE TIME if possible, but here we estimate with current fixed.
+  const tInc = all.reduce((a,p)=>a+parseFloat(p.income||0),0);
   const tOut = all.reduce((a,p)=>a+(p.expenses||[]).reduce((b,e)=>b+parseFloat(e.amount),0)+fixedPerPeriod()+titheAmt(parseFloat(p.income||0)),0);
   
   const tSav = tInc-tOut;
   const avg  = tInc>0?Math.round(tSav/tInc*100):0;
 
-  const rows = hist.length===0
-    ? '<div class="empty">No archived periods yet</div>'
-    : hist.slice().reverse().map(p=>{
+  const rows = all.length===0
+    ? '<div class="empty">No periods yet</div>'
+    : all.slice().reverse().map((p, index)=>{
+        const isCurrent = p === S.currentPeriod;
         const inc=parseFloat(p.income||0);
         const out=(p.expenses||[]).reduce((a,e)=>a+parseFloat(e.amount),0)+fixedPerPeriod()+titheAmt(inc);
         const sv=inc-out; const rt=inc>0?Math.round(sv/inc*100):0;
-        return `<div class="hist-item">
-          <div><div style="font-size:14px;font-weight:500">${p.startDate}</div><div style="font-size:11px;color:var(--muted);font-family:var(--font-mono);margin-top:2px">${(p.expenses||[]).length} expenses · ${fmt(inc)} income</div></div>
-          <div style="text-align:right"><div style="font-size:15px;font-weight:500;font-family:var(--font-mono);color:${sv<0?'var(--red)':'var(--green)'}">${sv<0?'−':''}${fmt(sv)}</div><span class="badge ${rt<0?'r':'g'}">${rt}% saved</span></div>
-        </div>`;
+        
+        const expsHtml = (p.expenses||[]).length === 0 
+          ? '<div style="padding:8px 0;color:var(--muted);font-size:12px">No transactions logged.</div>' 
+          : p.expenses.map(e => `
+            <div class="hist-exp-row">
+              <span style="color:var(--muted);margin-right:8px;font-family:var(--font-mono);font-size:10px">${e.date||''}</span>
+              <span style="flex:1">${e.name}</span>
+              <span style="font-family:var(--font-mono)">${fmt(e.amount)}</span>
+            </div>
+          `).join('');
+
+        return `
+          <details style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:14px;margin-bottom:10px;" ${isCurrent ? 'open' : ''}>
+            <summary style="display:flex;justify-content:space-between;align-items:center;outline:none;cursor:pointer;">
+              <div>
+                <div style="font-size:14px;font-weight:500">${p.startDate} ${isCurrent ? '<span class="badge g" style="margin-left:4px">Current</span>' : ''}</div>
+                <div style="font-size:11px;color:var(--muted);font-family:var(--font-mono);margin-top:2px">${(p.expenses||[]).length} expenses · ${fmt(inc)} income</div>
+              </div>
+              <div style="text-align:right">
+                <div style="font-size:15px;font-weight:500;font-family:var(--font-mono);color:${sv<0?'var(--red)':'var(--green)'}">${sv<0?'−':''}${fmt(sv)}</div>
+                <span class="badge ${rt<0?'r':'g'}">${rt}% saved</span>
+              </div>
+            </summary>
+            <div class="hist-exps-list">
+              <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.06em;color:var(--muted);margin-bottom:6px;font-family:var(--font-mono)">Transactions</div>
+              ${expsHtml}
+            </div>
+          </details>`;
       }).join('');
 
   return `
@@ -491,7 +551,7 @@ function renderHistory() {
       <div class="metric"><div class="lbl">Periods</div><div class="val">${all.length}</div></div>
       <div class="metric"><div class="lbl">Avg savings</div><div class="val g">${avg}%</div></div>
     </div>
-    <div class="card"><div class="card-label">Archived periods</div>${rows}</div>`;
+    <div style="margin-top:20px">${rows}</div>`;
 }
 
 // ── SETTINGS ──────────────────────────────────────────────────────────────
@@ -516,10 +576,27 @@ function renderSettings() {
 
   return `
     <div class="page-header"><h1>Settings</h1></div>
+    
+    <div class="card">
+      <div class="card-label">Pay Period Schedule</div>
+      <div class="field">
+        <label>Pay Frequency</label>
+        <select onchange="updateSetting('payFreq', this.value)">
+          <option value="weekly" ${s.payFreq==='weekly'?'selected':''}>Weekly</option>
+          <option value="biweekly" ${s.payFreq==='biweekly'?'selected':''}>Bi-weekly (Every 2 weeks)</option>
+          <option value="monthly" ${s.payFreq==='monthly'?'selected':''}>Monthly</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Most Recent Payday (Reference Date)</label>
+        <input type="date" value="${s.lastPayday}" onchange="updateSetting('lastPayday', this.value)" />
+      </div>
+    </div>
+
     <div class="card">
       <div class="card-label">Tithe</div>
       <div class="income-big" style="margin-bottom:4px">
-        <input type="number" value="${s.tithe}" placeholder="10" inputmode="decimal" min="0" max="100" style="font-size:32px" onchange="setTithe(this.value)"/>
+        <input type="number" value="${s.tithe}" placeholder="10" inputmode="decimal" min="0" max="100" style="font-size:32px" onchange="updateSetting('tithe', this.value)"/>
         <span style="font-size:24px;color:var(--muted);font-family:var(--font-mono);margin-left:4px">%</span>
       </div>
       <div style="font-size:12px;color:var(--muted);margin-top:6px">Auto-deducted from each paycheck</div>
@@ -538,12 +615,16 @@ function renderSettings() {
       ${fixedRows}
       <button class="add-btn" onclick="addFixed()">+ Add Fixed Cost</button>
     </div>
-    
+
     <div class="card">
-      <div class="card-label">Pay period</div>
-      <div style="font-size:13px;color:var(--muted);margin-bottom:14px">Start a new period each Wednesday payday. Category leftovers carry forward automatically.</div>
-      <button class="btn btn-ghost" onclick="startPeriod()">Start new pay period</button>
+      <div class="card-label">Data Management</div>
+      <button class="btn btn-ghost" onclick="exportData()">Export Data (Backup)</button>
+      <label class="btn btn-ghost" style="display:block;margin-top:8px;cursor:pointer;text-align:center">
+        Import Data (Restore)
+        <input type="file" style="display:none" accept=".json" onchange="importData(event)">
+      </label>
     </div>
+    
     <div class="card">
       <div class="card-label" style="color:var(--red)">Danger zone</div>
       <button class="btn btn-danger" onclick="resetAll()">Reset all data</button>
@@ -553,7 +634,17 @@ function renderSettings() {
 
 // ── ACTIONS ───────────────────────────────────────────────────────────────
 
-// Settings Actions
+function updateSetting(key, val) {
+  if (key === 'tithe') {
+    const n = parseFloat(val);
+    if (isNaN(n)||n<0||n>100) { toast('Enter 0–100'); return; }
+    S.settings[key] = n;
+  } else {
+    S.settings[key] = val;
+  }
+  save(); toast('Saved');
+}
+
 function updateCat(k, field, val) {
   if (field === 'monthly') S.settings.cats[k][field] = parseFloat(val) || 0;
   else S.settings.cats[k][field] = val;
@@ -596,13 +687,19 @@ function setIncome(v) {
 }
 
 function startPeriod() {
+  if (!S.settings.lastPayday) {
+    alert("Please set your Most Recent Payday in the Settings tab first!");
+    switchTab('settings');
+    return;
+  }
+  
   if (S.currentPeriod && parseFloat(S.currentPeriod.income||0)>0) {
     if (!confirm('Archive current period and start a new one?\nCategory leftovers will carry forward.')) return;
     const carry = computeCarryover(S.currentPeriod);
     S.history.push({...S.currentPeriod});
-    S.currentPeriod = {startDate:today(), income:0, expenses:[], carryover:carry};
+    S.currentPeriod = {startDate:today(), income:0, expenses:[], carryover:carry, tithePaid:false};
   } else {
-    S.currentPeriod = {startDate:today(), income:0, expenses:[], carryover:{}};
+    S.currentPeriod = {startDate:today(), income:0, expenses:[], carryover:{}, tithePaid:false};
   }
   save(); switchTab('home'); toast('New period started!');
 }
@@ -611,7 +708,7 @@ function archivePeriod() {
   if (!confirm('Archive this period?\nLeftover category budgets carry forward.')) return;
   const carry = computeCarryover(S.currentPeriod);
   S.history.push({...S.currentPeriod});
-  S.currentPeriod = {startDate:today(), income:0, expenses:[], carryover:carry};
+  S.currentPeriod = {startDate:today(), income:0, expenses:[], carryover:carry, tithePaid:false};
   save(); render(); toast('Archived — carryover applied');
 }
 
@@ -629,7 +726,7 @@ function addExpense() {
   if (isNaN(amt)||amt<=0) { toast('Enter a valid amount'); return; }
   if (!S.currentPeriod) {
     if (!confirm('No active period. Start one now?')) return;
-    S.currentPeriod = {startDate:today(), income:0, expenses:[], carryover:{}};
+    S.currentPeriod = {startDate:today(), income:0, expenses:[], carryover:{}, tithePaid:false};
   }
   S.currentPeriod.expenses.push({name, amount:amt, cat, date:today()});
   save(); toast(`Added: ${name}`);
@@ -640,25 +737,63 @@ function addExpense() {
 
 function quickAdd(i) {
   const r = QUICK_ITEMS[i];
-  const income = parseFloat(S.currentPeriod?.income||0);
-  const amt = r.amount===null ? titheAmt(income) : r.amount;
   if (!S.currentPeriod) {
     if (!confirm('No active period. Start one now?')) return;
-    S.currentPeriod = {startDate:today(), income:0, expenses:[], carryover:{}};
+    S.currentPeriod = {startDate:today(), income:0, expenses:[], carryover:{}, tithePaid:false};
   }
-  S.currentPeriod.expenses.push({name:r.name, amount:amt, cat:r.cat, date:today()});
+  S.currentPeriod.expenses.push({name:r.name, amount:r.amount, cat:r.cat, date:today()});
   save(); toast(`Added: ${r.name}`); switchTab('home');
 }
 
-function setTithe(v) {
-  const n = parseFloat(v);
-  if (isNaN(n)||n<0||n>100) { toast('Enter 0–100'); return; }
-  S.settings.tithe = n; save(); toast('Tithe saved');
+// ── DATA MANAGEMENT ───────────────────────────────────────────────────────
+function exportData() {
+  const dataStr = JSON.stringify(S, null, 2);
+  const blob = new Blob([dataStr], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `budget_backup_${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function importData(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const importedState = JSON.parse(e.target.result);
+      if (importedState && importedState.settings) {
+        if (!confirm('Warning: This will overwrite ALL your current data with the imported backup. Continue?')) return;
+        S = importedState;
+        save();
+        render();
+        toast('Data restored successfully!');
+      } else {
+        alert('Invalid backup file format.');
+      }
+    } catch (err) {
+      alert('Error reading the backup file.');
+    }
+    event.target.value = ''; // Reset input
+  };
+  reader.readAsText(file);
 }
 
 function resetAll() {
   if (!confirm('Delete ALL data permanently?')) return;
-  S = {currentPeriod:null, history:[], settings:{tithe:10, cats:{...DEFAULT_CATS}, fixedCosts: DEFAULT_FIXED.map(f => ({...f, color: DEFAULT_CATS[f.cat]?.color || '#888'}))}};
+  S = {
+    currentPeriod: null, 
+    history: [], 
+    settings: {
+      tithe: 10, 
+      payFreq: 'biweekly',
+      lastPayday: '',
+      cats: {...DEFAULT_CATS}, 
+      fixedCosts: [...DEFAULT_FIXED]
+    }
+  };
   save(); render(); toast('All data cleared');
 }
 
