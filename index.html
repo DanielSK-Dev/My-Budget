@@ -126,8 +126,10 @@ select option{background:#1e1e1e}
 .be-row input.input-name { flex:1; text-align:left; font-family:var(--font); min-width:0; }
 .be-row input.input-num { width:70px; text-align:right; }
 
-.quick-edit-row { display:flex; align-items:center; gap:6px; padding:9px 0; border-bottom:1px solid var(--border); }
+.quick-edit-row { display:flex; flex-direction:column; gap:8px; padding:14px 0; border-bottom:1px solid var(--border); }
 .quick-edit-row:last-child { border-bottom:none; }
+.qe-top, .qe-bot { display:flex; align-items:center; gap:8px; width:100%; }
+.qe-bot { padding-left:36px; }
 .quick-edit-row input, .quick-edit-row select { font-size:13px; padding:7px 8px; background:var(--surface2); border:1px solid var(--border); border-radius:8px; color:var(--text); font-family:var(--font); min-width:0; }
 
 .color-picker { width:28px; height:28px; padding:0; border:none; border-radius:14px; cursor:pointer; background:none; flex-shrink:0; }
@@ -201,12 +203,12 @@ const DEFAULT_FIXED = [
 ];
 
 const DEFAULT_QUICK = [
-  {name:'Gas fillup',  amount:40,   cat:'trans'},
-  {name:'Groceries',   amount:50,   cat:'groceries'}
+  {name:'Gas fillup',  amount:40, amtType:'fixed', cat:'trans', color:'#4d9fff'},
+  {name:'Groceries',   amount:50, amtType:'fixed', cat:'groceries', color:'#00c97a'}
 ];
 
 // ── STATE ─────────────────────────────────────────────────────────────────
-const SK = 'budget_v8';
+const SK = 'budget_v9';
 let S = {
   currentPeriod: null, 
   history: [], 
@@ -238,8 +240,14 @@ function load() {
       S.settings.fixedCosts = [...DEFAULT_FIXED];
     }
     
+    // Retrofit old quick adds to ensure they have an amtType and color
     if (!S.settings.quickAdds || S.settings.quickAdds.length === 0) {
       S.settings.quickAdds = [...DEFAULT_QUICK];
+    } else {
+      S.settings.quickAdds.forEach(q => {
+        if (!q.amtType) q.amtType = 'fixed';
+        if (!q.color) q.color = S.settings.cats[q.cat]?.color || '#555555';
+      });
     }
   } catch(e){}
 }
@@ -319,6 +327,14 @@ function computeCarryover(period) {
     out[k] = parseFloat(Math.max(0, budget - spent).toFixed(2));
   });
   return out;
+}
+
+function calcQuickAmt(q) {
+  const inc = parseFloat(S.currentPeriod?.income||0);
+  const amtVal = parseFloat(q.amount||0);
+  if (q.amtType === 'pct_income') return inc * (amtVal/100);
+  if (q.amtType === 'pct_budget') return catBudget(q.cat) * (amtVal/100);
+  return amtVal;
 }
 
 // ── ROUTING ───────────────────────────────────────────────────────────────
@@ -505,11 +521,17 @@ function renderCats() {
 function renderLog() {
   const catOpts = Object.entries(S.settings.cats).map(([k,c])=>`<option value="${k}">${c.label}</option>`).join('');
   
-  const quickRows = (S.settings.quickAdds || []).map((r,i)=>{
-    const c = S.settings.cats[r.cat]||{};
+  const quickRows = (S.settings.quickAdds || []).map((q,i)=>{
+    const c = S.settings.cats[q.cat]||{};
+    const computedAmt = calcQuickAmt(q);
+    
+    let displaySub = `${c.label||q.cat} · ${fmt(computedAmt)}`;
+    if (q.amtType === 'pct_income') displaySub = `${c.label||q.cat} · ${q.amount}% of Inc (${fmt(computedAmt)})`;
+    if (q.amtType === 'pct_budget') displaySub = `${c.label||q.cat} · ${q.amount}% of Budg (${fmt(computedAmt)})`;
+
     return `<div class="quick-item">
-      <div class="pip" style="background:${c.color||'#555'};height:28px"></div>
-      <div class="quick-info"><div class="quick-name">${r.name}</div><div class="quick-sub">${c.label||r.cat} · ${fmt(r.amount)}</div></div>
+      <div class="pip" style="background:${q.color||c.color||'#555'};height:28px"></div>
+      <div class="quick-info"><div class="quick-name">${q.name}</div><div class="quick-sub">${displaySub}</div></div>
       <button class="quick-btn" onclick="quickAdd(${i})">+ Add</button>
     </div>`;
   }).join('');
@@ -609,12 +631,22 @@ function renderSettings() {
 
   const quickAddRows = (s.quickAdds || []).map((q, i)=>`
     <div class="quick-edit-row">
-      <input type="text" value="${q.name}" placeholder="Name" style="flex:2" onchange="updateQuick(${i},'name',this.value)" />
-      <input type="number" value="${q.amount}" placeholder="Amt" style="flex:1" inputmode="decimal" min="0" step="0.01" onchange="updateQuick(${i},'amount',this.value)"/>
-      <select style="flex:2" onchange="updateQuick(${i},'cat',this.value)">
-        ${Object.entries(s.cats).map(([k,c]) => `<option value="${k}" ${q.cat===k?'selected':''}>${c.label}</option>`).join('')}
-      </select>
-      <button class="del-btn" onclick="delQuick(${i})">×</button>
+      <div class="qe-top">
+        <input type="color" class="color-picker" value="${q.color||'#555555'}" onchange="updateQuick(${i},'color',this.value)" />
+        <input type="text" value="${q.name}" placeholder="Name" style="flex:1" onchange="updateQuick(${i},'name',this.value)" />
+        <button class="del-btn" onclick="delQuick(${i})">×</button>
+      </div>
+      <div class="qe-bot">
+        <input type="number" value="${q.amount}" placeholder="Amt" style="width:70px" inputmode="decimal" min="0" step="0.01" onchange="updateQuick(${i},'amount',this.value)"/>
+        <select style="flex:1" onchange="updateQuick(${i},'amtType',this.value)">
+          <option value="fixed" ${q.amtType==='fixed'?'selected':''}>$ Fixed</option>
+          <option value="pct_income" ${q.amtType==='pct_income'?'selected':''}>% Income</option>
+          <option value="pct_budget" ${q.amtType==='pct_budget'?'selected':''}>% Budget</option>
+        </select>
+        <select style="flex:1" onchange="updateQuick(${i},'cat',this.value)">
+          ${Object.entries(s.cats).map(([k,c]) => `<option value="${k}" ${q.cat===k?'selected':''}>${c.label}</option>`).join('')}
+        </select>
+      </div>
     </div>`).join('');
 
   return `
@@ -647,7 +679,7 @@ function renderSettings() {
     
     <div class="card">
       <div class="card-label">Quick Add Items</div>
-      <div style="font-size:12px;color:var(--muted);margin-bottom:12px">Shortcuts that appear in the Add tab.</div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:12px">Shortcuts that appear in the Add tab. Select Fixed $, % of Total Income, or % of the linked Category Budget.</div>
       ${quickAddRows}
       <button class="add-btn" onclick="addQuick()">+ Add Quick Add</button>
     </div>
@@ -738,7 +770,7 @@ function updateQuick(idx, field, val) {
 
 function addQuick() {
   const firstCat = Object.keys(S.settings.cats)[0] || 'other';
-  S.settings.quickAdds.push({ name: 'New Item', amount: 0, cat: firstCat });
+  S.settings.quickAdds.push({ name: 'New Item', amount: 0, amtType: 'fixed', color: '#555555', cat: firstCat });
   save(); render();
 }
 
@@ -804,13 +836,14 @@ function addExpense() {
 }
 
 function quickAdd(i) {
-  const r = S.settings.quickAdds[i];
+  const q = S.settings.quickAdds[i];
   if (!S.currentPeriod) {
     if (!confirm('No active period. Start one now?')) return;
     S.currentPeriod = {startDate:today(), income:0, expenses:[], carryover:{}, tithePaid:false};
   }
-  S.currentPeriod.expenses.push({name:r.name, amount:r.amount, cat:r.cat, date:today()});
-  save(); toast(`Added: ${r.name}`); switchTab('home');
+  const amt = calcQuickAmt(q);
+  S.currentPeriod.expenses.push({name:q.name, amount:amt, cat:q.cat, date:today()});
+  save(); toast(`Added: ${q.name}`); switchTab('home');
 }
 
 // ── DATA MANAGEMENT ───────────────────────────────────────────────────────
