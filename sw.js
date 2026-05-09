@@ -1,54 +1,82 @@
 // ── Budget PWA Service Worker ─────────────────────────────────────────────
-// Bump CACHE_VERSION any time you deploy a new index.html. The activate
-// handler will delete the old cache so users automatically get fresh files.
-const CACHE_VERSION = 'budget-v1.5.1';
-const ASSETS = [
-  './',
-  './index.html',
-  './manifest.json',
-];
-// ── Install: cache app shell ──────────────────────────────────────────────
+// No release-tied CACHE_VERSION — APP_VERSION lives only in index.html.
+//
+// Strategy:
+//   • HTML / navigation requests → network-first (always grab fresh
+//     index.html when online; fall back to cache only when offline)
+//   • All other GET requests     → stale-while-revalidate (instant from
+//     cache, refresh in background)
+//
+// This means edits to index.html show up on the very next reload without
+// having to bump anything. The cache name is a single static string;
+// activate purges any old release-named caches that might be lingering.
+const CACHE = 'budget-app';
+const ASSETS = ['./', './index.html', './manifest.json'];
+
+// ── Install: pre-cache app shell ──────────────────────────────────────────
 self.addEventListener('install', event => {
-  // Take over immediately — don't wait for old tabs to close
   self.skipWaiting();
   event.waitUntil(
-    caches.open(CACHE_VERSION)
+    caches.open(CACHE)
       .then(cache => cache.addAll(ASSETS))
       .catch(() => { /* non-fatal: network may be unavailable */ })
   );
 });
-// ── Activate: purge old caches ────────────────────────────────────────────
+
+// ── Activate: drop any caches that aren't ours (e.g. old budget-v1.x.x) ──
 self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys()
-      .then(keys =>
-        Promise.all(
-          keys
-            .filter(key => key !== CACHE_VERSION)
-            .map(key => caches.delete(key))
-        )
-      )
-      .then(() => self.clients.claim())  // take control of open tabs right away
+      .then(keys => Promise.all(
+        keys.filter(k => k !== CACHE).map(k => caches.delete(k))
+      ))
+      .then(() => self.clients.claim())
   );
 });
-// ── Fetch: stale-while-revalidate ────────────────────────────────────────
-// Serve cached copy instantly, then fetch fresh copy in background and
-// update the cache. This keeps the app fast while ensuring eventual updates.
+
+// ── Helpers ───────────────────────────────────────────────────────────────
+const isNavigationRequest = req =>
+  req.mode === 'navigate' ||
+  (req.method === 'GET' && req.headers.get('accept')?.includes('text/html'));
+
+// ── Fetch: route by request type ─────────────────────────────────────────
 self.addEventListener('fetch', event => {
-  // Only handle same-origin GET requests
-  if (event.request.method !== 'GET') return;
+  const req = event.request;
+  if (req.method !== 'GET') return;
+
+  if (isNavigationRequest(req)) {
+    // Network-first for HTML / navigations. This is what makes updates
+    // appear without a version bump — fresh index.html on every reload.
+    event.respondWith(
+      fetch(req)
+        .then(res => {
+          if (res && res.ok) {
+            const clone = res.clone();
+            caches.open(CACHE).then(c => c.put(req, clone));
+          }
+          return res;
+        })
+        .catch(() =>
+          caches.open(CACHE).then(c =>
+            c.match(req).then(cached =>
+              cached || c.match('./index.html') || new Response('', {status: 503})
+            )
+          )
+        )
+    );
+    return;
+  }
+
+  // Stale-while-revalidate for everything else (manifest, icons, etc.)
   event.respondWith(
-    caches.open(CACHE_VERSION).then(cache =>
-      cache.match(event.request).then(cached => {
-        const fetchPromise = fetch(event.request)
-          .then(response => {
-            if (response && response.ok) {
-              cache.put(event.request, response.clone());
-            }
-            return response;
+    caches.open(CACHE).then(cache =>
+      cache.match(req).then(cached => {
+        const fetchPromise = fetch(req)
+          .then(res => {
+            if (res && res.ok) cache.put(req, res.clone());
+            return res;
           })
-          .catch(() => cached); // fall back to cache if offline
-        // Return cached immediately; background fetch updates cache for next load
+          .catch(() => cached);
         return cached || fetchPromise;
       })
     )
