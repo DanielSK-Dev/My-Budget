@@ -196,16 +196,9 @@ details > summary .summary-chevron {
 details[open] > summary .summary-chevron {
   transform: rotate(180deg);
 }
-details[open] > summary ~ * {
-  animation: detailsContentIn .3s cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-@keyframes detailsContentIn {
-  from { opacity: 0; transform: translateY(-6px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-details.is-animating[open] > summary ~ * {
-  animation: none; /* JS-driven height handles the visual; skip the inner anim while collapsing */
-}
+/* No inner-content animation — the height transition + overflow:hidden
+   already produces the slide effect, and replaying a keyframe animation
+   after transitionend caused a visible flash. */
 
 @keyframes slideUp { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
 .card,.metrics,.cat-card{animation:slideUp .2s ease both}
@@ -214,7 +207,6 @@ details.is-animating[open] > summary ~ * {
     animation: none !important;
     transition: none !important;
   }
-  details[open] > summary ~ * { animation: none !important; }
 }
 </style>
 </head>
@@ -247,7 +239,7 @@ details.is-animating[open] > summary ~ * {
 <div id="toast"></div>
 <script>
 // ── VERSION ───────────────────────────────────────────────────────────────
-const APP_VERSION = '1.5.1';
+const APP_VERSION = '1.5.2';
 // ── DEFAULTS ──────────────────────────────────────────────────────────────
 const DEFAULT_CATS = {
   groceries: {label:'Groceries',     color:'#00c97a', monthly:200},
@@ -696,7 +688,7 @@ function renderCats() {
         ${carry > 0 ? `<div class="carry-tag">+ ${fmt(carry)} carried over from last period</div>` : ''}
         ${debt  > 0 ? `<div class="carry-tag" style="color:var(--red)">− ${fmt(debt)} debt from last period (pre-counted as spent)</div>` : ''}
       </summary>
-      <div class="hist-exps-list" style="padding:0 16px 16px;margin-top:0">
+      <div class="hist-exps-list" style="padding:14px 16px 16px;margin-top:0">
         <div style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:8px;font-family:var(--font-mono)">Transactions this period</div>
         ${expsHtml}
       </div>
