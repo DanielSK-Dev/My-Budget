@@ -473,7 +473,7 @@ function computeCarryover(period) {
     const base   = (S.settings.cats[k]?.monthly || 0) / ppm;
     const carry  = period.carryover?.[k] || 0;
     const spent  = (period.expenses || []).filter(e => e.cat === k).reduce((a,e) => a + parseFloat(e.amount), 0);
-    out[k] = parseFloat(Math.max(0, base + carry - spent).toFixed(2));
+    out[k] = parseFloat((base + carry - spent).toFixed(2));
   });
   return out;
 }
@@ -695,7 +695,7 @@ function renderCats() {
         </div>
         <div class="prog-track"><div class="prog-fill" style="width:${pct}%;background:${barCol}"></div></div>
         <div class="prog-labels"><span>${fmt(spent)} spent</span><span>${fmt(budget)} budget</span></div>
-        ${carry>0 ? `<div class="carry-tag">+ ${fmt(carry)} carried over from last period</div>` : ''}
+        ${carry !== 0 ? `<div class="carry-tag" style="color:${carry < 0 ? 'var(--red)' : 'var(--green)'}">${carry < 0 ? '− ' + fmt(carry) + ' debt carried from last period' : '+ ' + fmt(carry) + ' carried over from last period'}</div>` : ''}
       </summary>
       <div class="hist-exps-list" style="padding:0 16px 16px;margin-top:0">
         <div style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:8px;font-family:var(--font-mono)">Transactions this period</div>
