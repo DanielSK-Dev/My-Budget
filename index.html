@@ -113,10 +113,6 @@ select option{background:#1e1e1e}
 .arch-btn{background:transparent;border:1px solid var(--border);border-radius:8px;color:var(--muted);font-size:12px;padding:6px 12px;cursor:pointer;font-family:var(--font)}
 .arch-btn:active{opacity:.7}
 
-/* Auto-roll banner */
-.autoroll-banner{background:#00e5a010;border:1px solid #00e5a030;border-radius:var(--r);padding:10px 14px;margin-bottom:12px;display:flex;align-items:center;gap:10px;font-size:12px;color:var(--green);font-family:var(--font-mono)}
-.autoroll-banner svg{flex-shrink:0;opacity:.7}
-
 .empty{text-align:center;padding:24px 0;color:var(--muted);font-size:13px}
 .sec-div{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);font-family:var(--font-mono);margin:16px 0 10px}
 
@@ -134,7 +130,7 @@ select option{background:#1e1e1e}
 .be-row input.input-name { flex:1; text-align:left; font-family:var(--font); min-width:0; }
 .be-row input.input-num { width:70px; text-align:right; }
 
-/* Fixed cost edit rows — 2-line layout */
+/* Fixed cost edit rows */
 .fc-edit-row{padding:12px 0;border-bottom:1px solid var(--border)}
 .fc-edit-row:last-child{border-bottom:none}
 .fc-edit-top{display:flex;align-items:center;gap:8px;margin-bottom:8px}
@@ -145,6 +141,7 @@ select option{background:#1e1e1e}
 .fc-edit-row input.fc-day{width:54px;text-align:center;font-family:var(--font-mono)}
 .fc-edit-row select.fc-type{flex:1}
 
+/* Quick add edit rows */
 .quick-edit-row { display:flex; flex-direction:column; gap:8px; padding:14px 0; border-bottom:1px solid var(--border); }
 .quick-edit-row:last-child { border-bottom:none; }
 .qe-top, .qe-bot { display:flex; align-items:center; gap:8px; width:100%; }
@@ -159,21 +156,55 @@ select option{background:#1e1e1e}
 .add-btn { width:100%; background:var(--surface2); border:1px dashed var(--border); color:var(--muted); padding:10px; border-radius:8px; margin-top:10px; cursor:pointer; font-family:var(--font); font-size: 14px; }
 .add-btn:active { background:var(--border); }
 
+/* ── History transaction rows ── */
 details > summary { list-style: none; }
 details > summary::-webkit-details-marker { display: none; }
-.hist-exps-list { margin-top: 8px; padding-top: 14px; border-top: 1px solid var(--surface2); }
-.hist-exp-row { display: flex; justify-content: space-between; padding: 10px 0; font-size: 14px; border-bottom: 1px solid #1e1e1e; }
-.hist-exp-row:last-child { border-bottom: none; }
 
-details[open] summary ~ * {
-  animation: slideDown .25s cubic-bezier(0.16, 1, 0.3, 1);
-}
-@keyframes slideDown {
-  from { opacity: 0; transform: translateY(-10px); }
-  to { opacity: 1; transform: translateY(0); }
-}
+.hist-exps-list { margin-top: 8px; padding-top: 12px; border-top: 1px solid var(--surface2); }
+.hist-section-hdr { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
+.hist-section-label { font-size:10px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); font-family:var(--font-mono); }
+.hist-add-btn { background:none; border:1px solid var(--border); border-radius:6px; color:var(--green); font-size:11px; font-family:var(--font-mono); padding:3px 8px; cursor:pointer; }
+.hist-add-btn:active { opacity:.7; }
 
-@keyframes slideUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+.hist-exp-row { display:flex; align-items:center; gap:5px; padding:8px 0; border-bottom:1px solid #1e1e1e; font-size:13px; }
+.hist-exp-row:last-child { border-bottom:none; }
+.hist-exp-date { font-size:10px; color:var(--muted); font-family:var(--font-mono); min-width:52px; flex-shrink:0; }
+.hist-exp-name { flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.hist-exp-amt { font-family:var(--font-mono); white-space:nowrap; margin-right:2px; }
+.hist-exp-cat { font-size:10px; color:var(--muted); font-family:var(--font-mono); white-space:nowrap; margin-right:2px; }
+.hist-icon-btn { background:none; border:none; color:var(--muted); cursor:pointer; padding:2px 4px; font-size:15px; line-height:1; flex-shrink:0; }
+.hist-icon-btn:active { color:var(--green); }
+.hist-icon-btn.del-icon:active { color:var(--red); }
+
+/* Inline edit form in history */
+.hist-edit-wrap { background:var(--bg); border:1px solid var(--border); border-left:3px solid var(--green); border-radius:9px; padding:10px; margin:4px 0; }
+.hist-edit-r1 { display:flex; gap:7px; margin-bottom:7px; }
+.hist-edit-r2 { display:flex; gap:7px; flex-wrap:wrap; }
+.hist-edit-wrap input, .hist-edit-wrap select { font-size:12px; padding:7px 8px; background:var(--surface2); border:1px solid var(--border); border-radius:7px; color:var(--text); font-family:var(--font); min-width:0; outline:none; }
+.hist-edit-wrap input:focus, .hist-edit-wrap select:focus { border-color:var(--green); }
+.he-save { background:var(--green); color:#000; border:none; border-radius:7px; padding:7px 12px; font-size:12px; font-weight:600; cursor:pointer; white-space:nowrap; flex-shrink:0; }
+.he-save:active { opacity:.8; }
+.he-cancel { background:none; border:1px solid var(--border); color:var(--muted); border-radius:7px; padding:7px 10px; font-size:12px; cursor:pointer; flex-shrink:0; }
+.he-cancel:active { opacity:.7; }
+
+/* Inline add form in history */
+.hist-add-wrap { background:var(--bg); border:1px solid var(--border); border-left:3px solid var(--green); border-radius:9px; padding:12px; margin-top:8px; }
+.hist-add-wrap .ha-row { display:flex; gap:7px; margin-bottom:7px; }
+.hist-add-wrap .ha-row:last-child { margin-bottom:0; }
+.hist-add-wrap input, .hist-add-wrap select { font-size:12px; padding:7px 8px; background:var(--surface2); border:1px solid var(--border); border-radius:7px; color:var(--text); font-family:var(--font); min-width:0; outline:none; }
+.hist-add-wrap input:focus, .hist-add-wrap select:focus { border-color:var(--green); }
+
+/* Category spending summary bars in history */
+.cat-summary-block { margin-top:12px; padding-top:12px; border-top:1px solid var(--surface2); }
+.cat-sum-row { display:flex; align-items:center; gap:8px; padding:5px 0; }
+.cat-sum-name { flex:1; font-size:12px; color:var(--muted); }
+.cat-sum-bar-track { height:3px; background:var(--surface2); border-radius:2px; width:60px; flex-shrink:0; overflow:hidden; }
+.cat-sum-bar-fill { height:100%; border-radius:2px; }
+.cat-sum-amt { font-size:12px; font-family:var(--font-mono); min-width:56px; text-align:right; }
+
+details[open] summary ~ * { animation: slideDown .25s cubic-bezier(0.16, 1, 0.3, 1); }
+@keyframes slideDown { from { opacity:0; transform:translateY(-8px); } to { opacity:1; transform:translateY(0); } }
+@keyframes slideUp { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
 .card,.metrics,.cat-card{animation:slideUp .2s ease both}
 </style>
 </head>
@@ -213,15 +244,13 @@ const DEFAULT_CATS = {
   fun:       {label:'Entertainment', color:'#ffb347', monthly:50},
   other:     {label:'Other',         color:'#555555', monthly:50},
 };
-
 const DEFAULT_FIXED = [
   {name:'Gym Membership', monthly:40.00, color:'#ffb347', billingType:'split'},
   {name:'Streaming Sub',  monthly:15.00, color:'#9f77dd', billingType:'split'},
 ];
-
 const DEFAULT_QUICK = [
-  {name:'Gas fillup',  amount:40, amtType:'fixed', cat:'trans', color:'#4d9fff'},
-  {name:'Groceries',   amount:50, amtType:'fixed', cat:'groceries', color:'#00c97a'}
+  {name:'Gas fillup', amount:40, amtType:'fixed', cat:'trans',      color:'#4d9fff'},
+  {name:'Groceries',  amount:50, amtType:'fixed', cat:'groceries',  color:'#00c97a'},
 ];
 
 // ── STATE ─────────────────────────────────────────────────────────────────
@@ -235,67 +264,78 @@ let S = {
     lastPayday: '',
     cats: {...DEFAULT_CATS},
     fixedCosts: [...DEFAULT_FIXED],
-    quickAdds: [...DEFAULT_QUICK]
+    quickAdds:  [...DEFAULT_QUICK],
   }
 };
 
-// Flag set by checkAutoRollover so render() can show a toast
-let _autoRollMsg = null;
+let _autoRollMsg = null;  // set by checkAutoRollover, shown after render
+let _histEdit    = null;  // {pid, ei} — which history expense is being edited
+let _histAdd     = null;  // pid — which period is showing the inline add form
 
+// ── LOAD / SAVE ───────────────────────────────────────────────────────────
 function load() {
   try {
     const r = localStorage.getItem(SK);
     if (r) {
       S = JSON.parse(r);
-      if (!S.settings.cats)        S.settings.cats = {...DEFAULT_CATS};
-      if (!S.settings.payFreq)     S.settings.payFreq = 'biweekly';
+      if (!S.settings.cats)    S.settings.cats    = {...DEFAULT_CATS};
+      if (!S.settings.payFreq) S.settings.payFreq = 'biweekly';
       if (typeof S.settings.lastPayday === 'undefined') S.settings.lastPayday = '';
     }
-
-    if (S.currentPeriod && typeof S.currentPeriod.tithePaid === 'undefined') {
+    if (S.currentPeriod && typeof S.currentPeriod.tithePaid === 'undefined')
       S.currentPeriod.tithePaid = false;
-    }
-
-    if (!S.settings.fixedCosts || S.settings.fixedCosts.length === 0) {
+    if (!S.settings.fixedCosts || !S.settings.fixedCosts.length)
       S.settings.fixedCosts = [...DEFAULT_FIXED];
-    }
-    // Retrofit fixed costs: add billingType if missing
     S.settings.fixedCosts.forEach(f => {
       if (!f.billingType) f.billingType = 'split';
       if (typeof f.billingDay === 'undefined') f.billingDay = 1;
     });
-
-    if (!S.settings.quickAdds || S.settings.quickAdds.length === 0) {
+    if (!S.settings.quickAdds || !S.settings.quickAdds.length) {
       S.settings.quickAdds = [...DEFAULT_QUICK];
     } else {
       S.settings.quickAdds.forEach(q => {
         if (!q.amtType) q.amtType = 'fixed';
-        if (!q.color) q.color = S.settings.cats[q.cat]?.color || '#555555';
+        if (!q.color)   q.color   = S.settings.cats[q.cat]?.color || '#555555';
       });
     }
-  } catch(e){}
-
-  // Auto-rollover must happen AFTER data is loaded
+  } catch(e) {}
   checkAutoRollover();
 }
-
-function save() { try{localStorage.setItem(SK,JSON.stringify(S));}catch(e){} }
+function save() { try { localStorage.setItem(SK, JSON.stringify(S)); } catch(e) {} }
 
 // ── HELPERS ───────────────────────────────────────────────────────────────
-const fmt = n => '$' + Math.abs(parseFloat(n)||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
-const todayStr = () => new Date().toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
-const todayISO = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
+const fmt = n => '$' + Math.abs(parseFloat(n)||0).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2});
+const todayStr = () => new Date().toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'});
+const todayISO = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+};
+function isoToDisplay(iso) {
+  if (!iso) return '';
+  const d = new Date(iso + 'T00:00:00');
+  return d.toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'});
+}
+function parseDisplayToISO(s) {
+  if (!s) return todayISO();
+  const d = new Date(s);
+  if (!isNaN(d.getTime()))
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  return todayISO();
+}
+function ordinal(n) {
+  n = parseInt(n) || 1;
+  const s = ['th','st','nd','rd'], v = n % 100;
+  return n + (s[(v-20)%10] || s[v] || s[0]);
+}
 
 // ── PAYDAY MATH ───────────────────────────────────────────────────────────
 const MS_DAY = 86400000;
 
-/** Returns a Date (midnight) for the most recent payday on or before today. */
 function getMostRecentPayday() {
   if (!S.settings.lastPayday) return null;
   const last = new Date(S.settings.lastPayday + 'T00:00:00');
   const now  = new Date(); now.setHours(0,0,0,0);
-  if (last > now) return null; // reference date is in the future
-
+  if (last > now) return null;
   if (S.settings.payFreq === 'monthly') {
     let recent = new Date(last);
     while (true) {
@@ -306,12 +346,10 @@ function getMostRecentPayday() {
     }
   } else {
     const interval = (S.settings.payFreq === 'weekly' ? 7 : 14) * MS_DAY;
-    const cycles   = Math.floor((now - last) / interval);
-    return new Date(last.getTime() + cycles * interval);
+    return new Date(last.getTime() + Math.floor((now - last) / interval) * interval);
   }
 }
 
-/** Returns the next payday Date strictly after `fromDate`. */
 function getNextPaydayAfter(fromDate) {
   if (!S.settings.lastPayday) return null;
   const last = new Date(S.settings.lastPayday + 'T00:00:00');
@@ -321,72 +359,53 @@ function getNextPaydayAfter(fromDate) {
     return next;
   } else {
     const interval = (S.settings.payFreq === 'weekly' ? 7 : 14) * MS_DAY;
-    const diff   = fromDate - last;
-    const cycles = Math.floor(diff / interval) + 1;
+    const cycles   = Math.floor((fromDate - last) / interval) + 1;
     return new Date(last.getTime() + cycles * interval);
   }
 }
 
-/** Returns {date, days} for the *next* upcoming payday. */
 function getPaydayInfo() {
-  if (!S.settings.lastPayday) return { date:'Not set', days:'?' };
-  const now = new Date(); now.setHours(0,0,0,0);
+  if (!S.settings.lastPayday) return {date:'Not set', days:'?'};
+  const now  = new Date(); now.setHours(0,0,0,0);
   const most = getMostRecentPayday();
-  // If today is payday
-  if (most && most.getTime() === now.getTime()) {
-    return { date: now.toLocaleDateString('en-US',{month:'short',day:'numeric'}), days: 0 };
-  }
+  if (most && most.getTime() === now.getTime())
+    return {date: now.toLocaleDateString('en-US', {month:'short', day:'numeric'}), days: 0};
   const next = getNextPaydayAfter(now);
-  if (!next) return { date:'Not set', days:'?' };
-  const days = Math.round((next - now) / MS_DAY);
-  return { date: next.toLocaleDateString('en-US',{month:'short',day:'numeric'}), days };
+  if (!next) return {date:'Not set', days:'?'};
+  return {date: next.toLocaleDateString('en-US', {month:'short', day:'numeric'}), days: Math.round((next - now) / MS_DAY)};
 }
 
-/** Returns {start:Date, end:Date} inclusive date range for a given period. */
 function getPeriodDateRange(period) {
-  let start = null;
-  if (period?.startDateISO) {
-    start = new Date(period.startDateISO + 'T00:00:00');
-  } else {
-    start = getMostRecentPayday(); // best guess for old periods
-  }
+  const start = period?.startDateISO
+    ? new Date(period.startDateISO + 'T00:00:00')
+    : getMostRecentPayday();
   if (!start) return null;
-
   let end;
   if (S.settings.payFreq === 'monthly') {
-    end = new Date(start);
-    end.setMonth(end.getMonth() + 1);
-    end = new Date(end.getTime() - MS_DAY);
+    end = new Date(start); end.setMonth(end.getMonth() + 1); end = new Date(end.getTime() - MS_DAY);
   } else {
     const days = S.settings.payFreq === 'weekly' ? 7 : 14;
     end = new Date(start.getTime() + (days - 1) * MS_DAY);
   }
-  return { start, end };
+  return {start, end};
 }
 
-/**
- * How much does fixed cost `f` charge in `period`?
- *   split → monthly / (periods per month)
- *   date  → full monthly amount IF billing day falls within period, else 0
- */
 function fixedCostForPeriod(f, period) {
   const monthly = parseFloat(f.monthly || 0);
   if (f.billingType === 'date') {
     const range = getPeriodDateRange(period);
-    if (!range) return monthly / 2; // fallback for data without ISO date
+    if (!range) return monthly / 2;
     const day = parseInt(f.billingDay) || 1;
-    const { start, end } = range;
-    // Walk through each calendar month that overlaps the period
+    const {start, end} = range;
     let m = new Date(start.getFullYear(), start.getMonth(), 1);
     while (m <= end) {
-      const lastDay = new Date(m.getFullYear(), m.getMonth() + 1, 0).getDate();
+      const lastDay  = new Date(m.getFullYear(), m.getMonth() + 1, 0).getDate();
       const billDate = new Date(m.getFullYear(), m.getMonth(), Math.min(day, lastDay));
       if (billDate >= start && billDate <= end) return monthly;
       m.setMonth(m.getMonth() + 1);
     }
     return 0;
   }
-  // 'split': divide by periods-per-month
   const ppm = S.settings.payFreq === 'weekly' ? 4 : S.settings.payFreq === 'monthly' ? 1 : 2;
   return monthly / ppm;
 }
@@ -395,40 +414,30 @@ const fixedForPeriod = period => (S.settings.fixedCosts || []).reduce((a,f) => a
 const fixedPerPeriod = () => fixedForPeriod(S.currentPeriod);
 
 // ── AUTO ROLLOVER ─────────────────────────────────────────────────────────
-/**
- * Called on load. If a new payday has passed since the current period started,
- * silently archive the old period and start a fresh one.
- */
 function checkAutoRollover() {
   if (!S.currentPeriod || !S.settings.lastPayday) return;
-
   const mostRecent = getMostRecentPayday();
   if (!mostRecent) return;
-
-  // If current period has no ISO start date, tag it and skip rollover this time
   if (!S.currentPeriod.startDateISO) {
-    S.currentPeriod.startDateISO = mostRecent.toISOString().slice(0,10);
-    save();
-    return;
+    S.currentPeriod.startDateISO = mostRecent.toISOString().slice(0, 10);
+    save(); return;
   }
-
   const periodStart = new Date(S.currentPeriod.startDateISO + 'T00:00:00');
   if (mostRecent > periodStart) {
-    // New pay period has arrived — archive and carry over
-    const carry = computeCarryover(S.currentPeriod);
+    const carry   = computeCarryover(S.currentPeriod);
     S.history.push({...S.currentPeriod});
     const isoDate = mostRecent.toISOString().slice(0, 10);
     S.currentPeriod = {
-      startDate: mostRecent.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}),
+      startDate:    mostRecent.toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'}),
       startDateISO: isoDate,
-      income: 0, expenses: [], carryover: carry, tithePaid: false
+      income: 0, expenses: [], carryover: carry, tithePaid: false,
     };
     save();
     _autoRollMsg = 'New pay period started — budget carried over';
   }
 }
 
-// ── TITHE ─────────────────────────────────────────────────────────────────
+// ── TITHE / TOAST ─────────────────────────────────────────────────────────
 const titheAmt = inc => inc * (S.settings.tithe / 100);
 
 function toggleTithe() {
@@ -443,45 +452,51 @@ function toast(msg) {
   setTimeout(() => el.classList.remove('show'), 2500);
 }
 
-// ── CAT BUDGET MATH ───────────────────────────────────────────────────────
+// ── CATEGORY MATH ─────────────────────────────────────────────────────────
 function catBudget(k) {
   const ppm = S.settings.payFreq === 'weekly' ? 4 : S.settings.payFreq === 'monthly' ? 1 : 2;
-  const base = (S.settings.cats[k]?.monthly || 0) / ppm;
-  const carry = S.currentPeriod?.carryover?.[k] || 0;
-  return base + carry;
+  return (S.settings.cats[k]?.monthly || 0) / ppm + (S.currentPeriod?.carryover?.[k] || 0);
 }
-
 function catSpent(k) {
-  return (S.currentPeriod?.expenses || [])
-    .filter(e => e.cat === k)
-    .reduce((a,e) => a + parseFloat(e.amount), 0);
+  return (S.currentPeriod?.expenses || []).filter(e => e.cat === k).reduce((a,e) => a + parseFloat(e.amount), 0);
 }
-
 function computeCarryover(period) {
   const out = {};
   const ppm = S.settings.payFreq === 'weekly' ? 4 : S.settings.payFreq === 'monthly' ? 1 : 2;
   Object.keys(S.settings.cats).forEach(k => {
-    const base  = (S.settings.cats[k]?.monthly || 0) / ppm;
-    const carry = period.carryover?.[k] || 0;
-    const budget = base + carry;
-    const spent = (period.expenses || []).filter(e => e.cat === k).reduce((a,e) => a + parseFloat(e.amount), 0);
-    out[k] = parseFloat(Math.max(0, budget - spent).toFixed(2));
+    const base   = (S.settings.cats[k]?.monthly || 0) / ppm;
+    const carry  = period.carryover?.[k] || 0;
+    const spent  = (period.expenses || []).filter(e => e.cat === k).reduce((a,e) => a + parseFloat(e.amount), 0);
+    out[k] = parseFloat(Math.max(0, base + carry - spent).toFixed(2));
   });
   return out;
 }
-
 function calcQuickAmt(q) {
-  const inc    = parseFloat(S.currentPeriod?.income || 0);
-  const amtVal = parseFloat(q.amount || 0);
-  if (q.amtType === 'pct_income')  return inc * (amtVal / 100);
-  if (q.amtType === 'pct_budget')  return catBudget(q.cat) * (amtVal / 100);
-  return amtVal;
+  const inc = parseFloat(S.currentPeriod?.income || 0);
+  const v   = parseFloat(q.amount || 0);
+  if (q.amtType === 'pct_income')  return inc * (v / 100);
+  if (q.amtType === 'pct_budget')  return catBudget(q.cat) * (v / 100);
+  return v;
+}
+
+// ── PERIOD HELPERS ────────────────────────────────────────────────────────
+function getPeriodById(pid) {
+  if (pid === 'current') return S.currentPeriod;
+  return S.history[parseInt(pid.slice(1))];
+}
+function newPeriodObj(isoDate, carry) {
+  return {
+    startDate:    new Date(isoDate + 'T00:00:00').toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'}),
+    startDateISO: isoDate,
+    income: 0, expenses: [], carryover: carry || {}, tithePaid: false,
+  };
 }
 
 // ── ROUTING ───────────────────────────────────────────────────────────────
 let TAB = 'home';
 function switchTab(t) {
   TAB = t;
+  _histEdit = null; _histAdd = null;
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === t));
   render();
 }
@@ -492,10 +507,8 @@ function render() {
     : TAB === 'log'    ? renderLog()
     : TAB === 'history'? renderHistory()
     : renderSettings();
-
   if (_autoRollMsg) {
-    const msg = _autoRollMsg;
-    _autoRollMsg = null;
+    const msg = _autoRollMsg; _autoRollMsg = null;
     setTimeout(() => toast(msg), 150);
   }
 }
@@ -510,23 +523,23 @@ function renderHome() {
       <button class="btn btn-primary" onclick="startPeriod()">Start pay period</button>
     </div>`;
 
-  const income   = parseFloat(cp.income || 0);
-  const fixed    = fixedPerPeriod();
-  const tithe    = titheAmt(income);
-  const exps     = cp.expenses || [];
-  const varSpent = exps.reduce((a,e) => a + parseFloat(e.amount), 0);
-  const totalOut = fixed + tithe + varSpent;
+  const income    = parseFloat(cp.income || 0);
+  const fixed     = fixedPerPeriod();
+  const tithe     = titheAmt(income);
+  const exps      = cp.expenses || [];
+  const varSpent  = exps.reduce((a,e) => a + parseFloat(e.amount), 0);
+  const totalOut  = fixed + tithe + varSpent;
   const remaining = income - totalOut;
-  const pct      = income > 0 ? Math.min(100, Math.round(totalOut / income * 100)) : 0;
-  const rate     = income > 0 ? Math.round(remaining / income * 100) : null;
-  const barCol   = pct > 90 ? 'var(--red)' : pct > 70 ? 'var(--amber)' : 'var(--green)';
-  const payInfo  = getPaydayInfo();
+  const pct       = income > 0 ? Math.min(100, Math.round(totalOut / income * 100)) : 0;
+  const rate      = income > 0 ? Math.round(remaining / income * 100) : null;
+  const barCol    = pct > 90 ? 'var(--red)' : pct > 70 ? 'var(--amber)' : 'var(--green)';
+  const payInfo   = getPaydayInfo();
 
   const expRows = exps.length === 0
     ? '<div class="empty">No variable expenses yet</div>'
-    : exps.slice().reverse().map((e,ri) => {
+    : exps.slice().reverse().map((e, ri) => {
         const idx = exps.length - 1 - ri;
-        const c = S.settings.cats[e.cat] || {label:e.cat, color:'#555'};
+        const c   = S.settings.cats[e.cat] || {label: e.cat, color: '#555'};
         return `<div class="exp-item">
           <div class="pip" style="background:${c.color};height:32px"></div>
           <div class="exp-info">
@@ -538,26 +551,23 @@ function renderHome() {
         </div>`;
       }).join('');
 
-  // Fixed cost rows — show date-billed items with due/skip tags
   const fixedRows = (S.settings.fixedCosts || []).map(f => {
     const amt   = fixedCostForPeriod(f, cp);
     const isDue = amt > 0;
-    let tagHtml = '';
-    if (f.billingType === 'date') {
-      tagHtml = isDue
-        ? `<span class="fixed-tag due">due ${ordinal(f.billingDay)}</span>`
-        : `<span class="fixed-tag skip">next mo.</span>`;
-    }
+    const tag   = f.billingType === 'date'
+      ? (isDue ? `<span class="fixed-tag due">due ${ordinal(f.billingDay)}</span>`
+               : `<span class="fixed-tag skip">next mo.</span>`)
+      : '';
     return `<div class="fixed-row${isDue ? '' : ' dimmed'}">
       <div class="pip" style="background:${f.color||'#555'};height:22px"></div>
-      <div class="fixed-name">${f.name}${tagHtml}</div>
-      <div class="fixed-amt" style="color:${isDue?'var(--red)':'var(--muted)'}">
+      <div class="fixed-name">${f.name}${tag}</div>
+      <div class="fixed-amt" style="color:${isDue ? 'var(--red)' : 'var(--muted)'}">
         ${isDue ? '−' + fmt(amt) : fmt(parseFloat(f.monthly))}
       </div>
     </div>`;
   }).join('');
 
-  const titheBtn = `<button onclick="toggleTithe()" style="background:none;border:1px solid ${cp.tithePaid?'var(--green)':'var(--border)'};color:${cp.tithePaid?'var(--green)':'var(--muted)'};border-radius:4px;padding:2px 6px;font-size:10px;cursor:pointer;margin-left:6px;font-family:var(--font);transition:all 0.15s">${cp.tithePaid?'✓ Paid':'Mark paid'}</button>`;
+  const titheBtn = `<button onclick="toggleTithe()" style="background:none;border:1px solid ${cp.tithePaid?'var(--green)':'var(--border)'};color:${cp.tithePaid?'var(--green)':'var(--muted)'};border-radius:4px;padding:2px 6px;font-size:10px;cursor:pointer;margin-left:6px;font-family:var(--font);transition:all 0.15s">${cp.tithePaid ? '✓ Paid' : 'Mark paid'}</button>`;
 
   return `
     <div class="page-header"><h1>Budget</h1></div>
@@ -581,14 +591,17 @@ function renderHome() {
       <div class="metric"><div class="lbl">Fixed + tithe</div><div class="val">${fmt(fixed+tithe)}</div></div>
       <div class="metric"><div class="lbl">Variable spent</div><div class="val">${fmt(varSpent)}</div></div>
       <div class="metric"><div class="lbl">Investable</div><div class="val ${remaining<0?'r':'g'}">${remaining<0?'−':''}${fmt(remaining)}</div></div>
-      <div class="metric"><div class="lbl">Savings rate</div><div class="val ${rate!==null&&rate<0?'r':'g'}">${rate!==null?rate+'%':'—'}</div></div>
+      <div class="metric"><div class="lbl">Savings rate</div><div class="val ${rate!==null&&rate<0?'r':'g'}">${rate!==null ? rate+'%' : '—'}</div></div>
     </div>
 
     <div class="card">
       <div class="card-label">Breakdown</div>
       <div class="sum-row"><span class="sum-label">Gross income</span><span class="sum-val">${fmt(income)}</span></div>
       <div class="sum-row"><span class="sum-label">Fixed costs</span><span class="sum-val r">−${fmt(fixed)}</span></div>
-      <div class="sum-row"><span class="sum-label" style="display:flex;align-items:center">Tithe (${S.settings.tithe}%) ${titheBtn}</span><span class="sum-val r">−${fmt(tithe)}</span></div>
+      <div class="sum-row">
+        <span class="sum-label" style="display:flex;align-items:center">Tithe (${S.settings.tithe}%) ${titheBtn}</span>
+        <span class="sum-val r">−${fmt(tithe)}</span>
+      </div>
       <div class="sum-row"><span class="sum-label">Variable expenses</span><span class="sum-val a">−${fmt(varSpent)}</span></div>
       <div class="sum-row" style="border-top:1px solid var(--border);border-bottom:none;margin-top:4px;padding-top:12px">
         <span class="sum-label" style="font-weight:500;color:var(--text)">To invest</span>
@@ -624,34 +637,31 @@ function renderHome() {
 
 // ── CATEGORY BUDGETS ──────────────────────────────────────────────────────
 function renderCats() {
-  const cats = S.settings.cats;
-  const visibleCats = Object.entries(cats).filter(([k,c]) => {
-    return (c.monthly||0)>0 || catSpent(k)>0 || (S.currentPeriod?.carryover?.[k]||0)>0;
-  });
-
-  if (visibleCats.length === 0) return `
+  const cats       = S.settings.cats;
+  const visibleCats = Object.entries(cats).filter(([k,c]) =>
+    (c.monthly||0) > 0 || catSpent(k) > 0 || (S.currentPeriod?.carryover?.[k]||0) > 0
+  );
+  if (!visibleCats.length) return `
     <div class="page-header"><h1>Budgets</h1><p>Per-category spending tracker</p></div>
     <div class="card"><div class="empty">Set monthly budgets in Settings to see tracking here</div></div>`;
 
   const cards = visibleCats.map(([k,c]) => {
-    const budget = catBudget(k);
-    const spent  = catSpent(k);
-    const rem    = budget - spent;
-    const pct    = budget > 0 ? Math.min(100, Math.round(spent/budget*100)) : 0;
-    const barCol = pct>90?'var(--red)':pct>70?'var(--amber)':c.color;
-    const remClass = rem<0?'r':rem<budget*0.25?'a':'g';
-    const carry  = S.currentPeriod?.carryover?.[k] || 0;
-
-    const catExps = (S.currentPeriod?.expenses||[]).filter(e=>e.cat===k);
+    const budget   = catBudget(k);
+    const spent    = catSpent(k);
+    const rem      = budget - spent;
+    const pct      = budget > 0 ? Math.min(100, Math.round(spent/budget*100)) : 0;
+    const barCol   = pct>90 ? 'var(--red)' : pct>70 ? 'var(--amber)' : c.color;
+    const remClass = rem<0 ? 'r' : rem < budget*0.25 ? 'a' : 'g';
+    const carry    = S.currentPeriod?.carryover?.[k] || 0;
+    const catExps  = (S.currentPeriod?.expenses||[]).filter(e => e.cat===k);
     const expsHtml = catExps.length === 0
       ? '<div style="padding:8px 0;color:var(--muted);font-size:12px">No transactions yet.</div>'
       : catExps.slice().reverse().map(e => `
-        <div class="hist-exp-row">
-          <span style="color:var(--muted);margin-right:12px;font-family:var(--font-mono);font-size:11px">${e.date||''}</span>
-          <span style="flex:1">${e.name}</span>
-          <span style="font-family:var(--font-mono)">${fmt(e.amount)}</span>
-        </div>`).join('');
-
+          <div class="hist-exp-row">
+            <span class="hist-exp-date">${e.date||''}</span>
+            <span class="hist-exp-name">${e.name}</span>
+            <span class="hist-exp-amt">${fmt(e.amount)}</span>
+          </div>`).join('');
     return `<details class="cat-card" style="padding:0">
       <summary style="padding:16px;outline:none;cursor:pointer;display:block">
         <div class="cat-header">
@@ -661,37 +671,33 @@ function renderCats() {
         </div>
         <div class="prog-track"><div class="prog-fill" style="width:${pct}%;background:${barCol}"></div></div>
         <div class="prog-labels"><span>${fmt(spent)} spent</span><span>${fmt(budget)} budget</span></div>
-        ${carry>0?`<div class="carry-tag">+ ${fmt(carry)} carried over from last period</div>`:''}
+        ${carry>0 ? `<div class="carry-tag">+ ${fmt(carry)} carried over from last period</div>` : ''}
       </summary>
-      <div class="hist-exps-list" style="padding:0 16px 16px; margin-top:0;">
-        <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.06em;color:var(--muted);margin-bottom:8px;font-family:var(--font-mono)">Transactions this period</div>
+      <div class="hist-exps-list" style="padding:0 16px 16px;margin-top:0">
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:8px;font-family:var(--font-mono)">Transactions this period</div>
         ${expsHtml}
       </div>
     </details>`;
   }).join('');
 
-  return `
-    <div class="page-header"><h1>Budgets</h1><p>Leftover rolls over each period</p></div>
-    ${cards}`;
+  return `<div class="page-header"><h1>Budgets</h1><p>Leftover rolls over each period</p></div>${cards}`;
 }
 
 // ── ADD EXPENSE ───────────────────────────────────────────────────────────
 function renderLog() {
-  const catOpts = Object.entries(S.settings.cats).map(([k,c])=>`<option value="${k}">${c.label}</option>`).join('');
-
+  const catOpts  = Object.entries(S.settings.cats).map(([k,c]) => `<option value="${k}">${c.label}</option>`).join('');
   const quickRows = (S.settings.quickAdds || []).map((q,i) => {
-    const c = S.settings.cats[q.cat] || {};
-    const computedAmt = calcQuickAmt(q);
-    let displaySub = `${c.label||q.cat} · ${fmt(computedAmt)}`;
-    if (q.amtType === 'pct_income') displaySub = `${c.label||q.cat} · ${q.amount}% of Inc (${fmt(computedAmt)})`;
-    if (q.amtType === 'pct_budget') displaySub = `${c.label||q.cat} · ${q.amount}% of Budg (${fmt(computedAmt)})`;
+    const c   = S.settings.cats[q.cat] || {};
+    const amt = calcQuickAmt(q);
+    let sub   = `${c.label||q.cat} · ${fmt(amt)}`;
+    if (q.amtType === 'pct_income') sub = `${c.label||q.cat} · ${q.amount}% of Inc (${fmt(amt)})`;
+    if (q.amtType === 'pct_budget') sub = `${c.label||q.cat} · ${q.amount}% of Budg (${fmt(amt)})`;
     return `<div class="quick-item">
       <div class="pip" style="background:${q.color||c.color||'#555'};height:28px"></div>
-      <div class="quick-info"><div class="quick-name">${q.name}</div><div class="quick-sub">${displaySub}</div></div>
+      <div class="quick-info"><div class="quick-name">${q.name}</div><div class="quick-sub">${sub}</div></div>
       <button class="quick-btn" onclick="quickAdd(${i})">+ Add</button>
     </div>`;
   }).join('');
-
   return `
     <div class="page-header"><h1>Add expense</h1></div>
     <div class="card">
@@ -707,44 +713,117 @@ function renderLog() {
 }
 
 // ── HISTORY ───────────────────────────────────────────────────────────────
+function buildCatSummaryHtml(period) {
+  const byCat = {};
+  (period.expenses || []).forEach(e => {
+    byCat[e.cat] = (byCat[e.cat] || 0) + parseFloat(e.amount);
+  });
+  const entries = Object.entries(byCat).sort((a,b) => b[1] - a[1]);
+  if (!entries.length) return '';
+  const max = entries[0][1];
+  const rows = entries.map(([k, total]) => {
+    const c    = S.settings.cats[k] || {label: k, color: '#555'};
+    const barW = max > 0 ? Math.round(total / max * 100) : 0;
+    return `<div class="cat-sum-row">
+      <div class="pip" style="background:${c.color};height:16px"></div>
+      <div class="cat-sum-name">${c.label}</div>
+      <div class="cat-sum-bar-track"><div class="cat-sum-bar-fill" style="width:${barW}%;background:${c.color}"></div></div>
+      <div class="cat-sum-amt">${fmt(total)}</div>
+    </div>`;
+  }).join('');
+  return `<div class="cat-summary-block">
+    <div style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:8px;font-family:var(--font-mono)">Spending by category</div>
+    ${rows}
+  </div>`;
+}
+
+function renderHistExpRow(pid, ei, e) {
+  const c = S.settings.cats[e.cat] || {label: e.cat, color: '#555'};
+  return `<div class="hist-exp-row">
+    <span class="hist-exp-date">${e.date || ''}</span>
+    <div class="pip" style="background:${c.color};height:14px;margin:0 2px"></div>
+    <span class="hist-exp-name" title="${e.name}">${e.name}</span>
+    <span class="hist-exp-cat">${c.label}</span>
+    <span class="hist-exp-amt">${fmt(e.amount)}</span>
+    <button class="hist-icon-btn"       onclick="startHistEdit('${pid}',${ei})" title="Edit">✎</button>
+    <button class="hist-icon-btn del-icon" onclick="delHistExp('${pid}',${ei})"  title="Delete">×</button>
+  </div>`;
+}
+
+function renderHistEditRow(pid, ei, e) {
+  const catOpts = Object.entries(S.settings.cats).map(([k,c]) =>
+    `<option value="${k}" ${e.cat===k?'selected':''}>${c.label}</option>`).join('');
+  const dateVal = e.dateISO || parseDisplayToISO(e.date);
+  return `<div class="hist-edit-wrap">
+    <div class="hist-edit-r1">
+      <input type="text" id="he-n-${pid}-${ei}" value="${e.name.replace(/"/g,'&quot;')}" placeholder="Description" style="flex:1"/>
+      <input type="number" id="he-a-${pid}-${ei}" value="${e.amount}" placeholder="0.00" inputmode="decimal" style="width:80px;text-align:right;font-family:var(--font-mono)"/>
+    </div>
+    <div class="hist-edit-r2">
+      <select id="he-c-${pid}-${ei}" style="flex:1">${catOpts}</select>
+      <input type="date" id="he-d-${pid}-${ei}" value="${dateVal}" style="flex:1"/>
+      <button class="he-save"   onclick="saveHistExp('${pid}',${ei})">Save</button>
+      <button class="he-cancel" onclick="cancelHistEdit()">✕</button>
+    </div>
+  </div>`;
+}
+
+function renderHistAddForm(pid) {
+  const catOpts = Object.entries(S.settings.cats).map(([k,c]) =>
+    `<option value="${k}">${c.label}</option>`).join('');
+  return `<div class="hist-add-wrap">
+    <div class="ha-row">
+      <input type="text" id="ha-n-${pid}" placeholder="Description" style="flex:1"/>
+      <input type="number" id="ha-a-${pid}" placeholder="0.00" inputmode="decimal" style="width:80px;text-align:right;font-family:var(--font-mono)"/>
+    </div>
+    <div class="ha-row">
+      <select id="ha-c-${pid}" style="flex:1">${catOpts}</select>
+      <input type="date" id="ha-d-${pid}" value="${todayISO()}" style="flex:1"/>
+      <button class="he-save"   onclick="saveHistAdd('${pid}')">Add</button>
+      <button class="he-cancel" onclick="cancelHistAdd()">✕</button>
+    </div>
+  </div>`;
+}
+
 function renderHistory() {
   const hist = S.history || [];
-  const all  = S.currentPeriod ? [...hist, S.currentPeriod] : hist;
+  const all  = [
+    ...hist.map((p, i) => ({p, pid: `h${i}`})),
+    ...(S.currentPeriod ? [{p: S.currentPeriod, pid: 'current'}] : []),
+  ].reverse();
 
-  const tInc = all.reduce((a,p) => a + parseFloat(p.income||0), 0);
-  // Use fixedForPeriod per-period so date-billed costs are correct
-  const tOut = all.reduce((a,p) => {
+  const tInc = all.reduce((a, {p}) => a + parseFloat(p.income||0), 0);
+  const tOut = all.reduce((a, {p}) => {
     const inc = parseFloat(p.income||0);
-    return a + (p.expenses||[]).reduce((b,e)=>b+parseFloat(e.amount),0)
-             + fixedForPeriod(p) + titheAmt(inc);
+    return a + (p.expenses||[]).reduce((b,e) => b + parseFloat(e.amount), 0) + fixedForPeriod(p) + titheAmt(inc);
   }, 0);
   const tSav = tInc - tOut;
-  const avg  = tInc > 0 ? Math.round(tSav/tInc*100) : 0;
+  const avg  = tInc > 0 ? Math.round(tSav / tInc * 100) : 0;
 
   const rows = all.length === 0
     ? '<div class="empty">No periods yet</div>'
-    : all.slice().reverse().map(p => {
-        const isCurrent = p === S.currentPeriod;
+    : all.map(({p, pid}) => {
+        const isCurrent = pid === 'current';
         const inc = parseFloat(p.income||0);
-        const out = (p.expenses||[]).reduce((a,e)=>a+parseFloat(e.amount),0)
-                  + fixedForPeriod(p) + titheAmt(inc);
-        const sv = inc - out;
-        const rt = inc > 0 ? Math.round(sv/inc*100) : 0;
+        const out = (p.expenses||[]).reduce((a,e) => a+parseFloat(e.amount), 0) + fixedForPeriod(p) + titheAmt(inc);
+        const sv  = inc - out;
+        const rt  = inc > 0 ? Math.round(sv / inc * 100) : 0;
 
-        const expsHtml = (p.expenses||[]).length === 0
-          ? '<div style="padding:8px 0;color:var(--muted);font-size:12px">No transactions logged.</div>'
-          : p.expenses.map(e => `
-            <div class="hist-exp-row">
-              <span style="color:var(--muted);margin-right:12px;font-family:var(--font-mono);font-size:11px">${e.date||''}</span>
-              <span style="flex:1">${e.name}</span>
-              <span style="font-family:var(--font-mono)">${fmt(e.amount)}</span>
-            </div>`).join('');
+        const expItems = (p.expenses||[]).map((e, ei) => {
+          if (_histEdit && _histEdit.pid === pid && _histEdit.ei === ei)
+            return renderHistEditRow(pid, ei, e);
+          return renderHistExpRow(pid, ei, e);
+        }).join('');
+
+        const addForm = _histAdd === pid ? renderHistAddForm(pid) : '';
+        const isEmpty = (p.expenses||[]).length === 0 && _histAdd !== pid;
+        const isOpen  = isCurrent || (_histEdit && _histEdit.pid === pid) || _histAdd === pid;
 
         return `
-          <details style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:16px;margin-bottom:10px;" ${isCurrent?'open':''}>
+          <details style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:16px;margin-bottom:10px;" ${isOpen?'open':''}>
             <summary style="display:flex;justify-content:space-between;align-items:center;outline:none;cursor:pointer;">
               <div>
-                <div style="font-size:14px;font-weight:500">${p.startDate} ${isCurrent?'<span class="badge g" style="margin-left:4px">Current</span>':''}</div>
+                <div style="font-size:14px;font-weight:500">${p.startDate}${isCurrent ? ' <span class="badge g" style="margin-left:4px">Current</span>' : ''}</div>
                 <div style="font-size:11px;color:var(--muted);font-family:var(--font-mono);margin-top:2px">${(p.expenses||[]).length} expenses · ${fmt(inc)} income</div>
               </div>
               <div style="text-align:right">
@@ -753,9 +832,14 @@ function renderHistory() {
               </div>
             </summary>
             <div class="hist-exps-list">
-              <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.06em;color:var(--muted);margin-bottom:8px;font-family:var(--font-mono)">Transactions</div>
-              ${expsHtml}
+              <div class="hist-section-hdr">
+                <span class="hist-section-label">Transactions</span>
+                <button class="hist-add-btn" onclick="startHistAdd('${pid}')">＋ Add</button>
+              </div>
+              ${isEmpty ? '<div style="padding:8px 0;color:var(--muted);font-size:12px">No transactions logged.</div>' : expItems}
+              ${addForm}
             </div>
+            ${buildCatSummaryHtml(p)}
           </details>`;
       }).join('');
 
@@ -770,6 +854,49 @@ function renderHistory() {
     <div style="margin-top:20px">${rows}</div>`;
 }
 
+// ── HISTORY EDIT / ADD ACTIONS ────────────────────────────────────────────
+function startHistEdit(pid, ei) { _histAdd = null; _histEdit = {pid, ei}; render(); }
+function cancelHistEdit()        { _histEdit = null; render(); }
+
+function saveHistExp(pid, ei) {
+  const period = getPeriodById(pid); if (!period) return;
+  const name    = document.getElementById(`he-n-${pid}-${ei}`)?.value?.trim();
+  const amt     = parseFloat(document.getElementById(`he-a-${pid}-${ei}`)?.value);
+  const cat     = document.getElementById(`he-c-${pid}-${ei}`)?.value;
+  const dateISO = document.getElementById(`he-d-${pid}-${ei}`)?.value;
+  if (!name)           { toast('Enter a description'); return; }
+  if (isNaN(amt)||amt<=0) { toast('Enter a valid amount'); return; }
+  period.expenses[ei] = {name, amount: amt, cat, date: isoToDisplay(dateISO), dateISO};
+  _histEdit = null; save(); render(); toast('Updated');
+}
+
+function delHistExp(pid, ei) {
+  const period = getPeriodById(pid); if (!period) return;
+  const name   = period.expenses[ei]?.name;
+  if (!confirm(`Delete "${name}"?`)) return;
+  period.expenses.splice(ei, 1);
+  if (_histEdit && _histEdit.pid === pid && _histEdit.ei === ei) _histEdit = null;
+  save(); render(); toast(`Removed: ${name}`);
+}
+
+function startHistAdd(pid) {
+  _histEdit = null; _histAdd = pid; render();
+  setTimeout(() => document.getElementById(`ha-n-${pid}`)?.focus(), 60);
+}
+function cancelHistAdd() { _histAdd = null; render(); }
+
+function saveHistAdd(pid) {
+  const period  = getPeriodById(pid); if (!period) return;
+  const name    = document.getElementById(`ha-n-${pid}`)?.value?.trim();
+  const amt     = parseFloat(document.getElementById(`ha-a-${pid}`)?.value);
+  const cat     = document.getElementById(`ha-c-${pid}`)?.value;
+  const dateISO = document.getElementById(`ha-d-${pid}`)?.value || todayISO();
+  if (!name)           { toast('Enter a description'); return; }
+  if (isNaN(amt)||amt<=0) { toast('Enter a valid amount'); return; }
+  period.expenses.push({name, amount: amt, cat, date: isoToDisplay(dateISO), dateISO});
+  _histAdd = null; save(); render(); toast(`Added: ${name}`);
+}
+
 // ── SETTINGS ──────────────────────────────────────────────────────────────
 function renderSettings() {
   const s = S.settings;
@@ -782,30 +909,28 @@ function renderSettings() {
       <button class="del-btn" onclick="delCat('${k}')">×</button>
     </div>`).join('');
 
-  // Fixed cost rows — 2-line with billing type selector
   const fixedRows = (s.fixedCosts || []).map((f, i) => {
-    const isDate = f.billingType === 'date';
+    const isDate   = f.billingType === 'date';
     const dayField = isDate
       ? `<span style="font-size:11px;color:var(--muted);flex-shrink:0">Day</span>
-         <input type="number" class="fc-day" value="${f.billingDay||1}" min="1" max="31" inputmode="numeric" onchange="updateFixed(${i},'billingDay',this.value)" title="Day of month billing occurs" />`
+         <input type="number" class="fc-day" value="${f.billingDay||1}" min="1" max="31" inputmode="numeric" onchange="updateFixed(${i},'billingDay',this.value)" />`
       : '';
-    return `
-      <div class="fc-edit-row">
-        <div class="fc-edit-top">
-          <input type="color" class="color-picker" value="${f.color||'#888888'}" onchange="updateFixed(${i},'color',this.value)" />
-          <input type="text" class="fc-name" value="${f.name}" placeholder="Fixed cost" onchange="updateFixed(${i},'name',this.value)" />
-          <button class="del-btn" onclick="delFixed(${i})">×</button>
-        </div>
-        <div class="fc-edit-bot">
-          <span style="font-size:11px;color:var(--muted);flex-shrink:0">$/mo</span>
-          <input type="number" class="fc-amt" value="${f.monthly||0}" placeholder="0" inputmode="decimal" min="0" step="1" onchange="updateFixed(${i},'monthly',this.value)" />
-          <select class="fc-type" onchange="updateFixed(${i},'billingType',this.value);render()">
-            <option value="split" ${!isDate?'selected':''}>÷ each period</option>
-            <option value="date"  ${isDate?'selected':''}>On specific day</option>
-          </select>
-          ${dayField}
-        </div>
-      </div>`;
+    return `<div class="fc-edit-row">
+      <div class="fc-edit-top">
+        <input type="color" class="color-picker" value="${f.color||'#888888'}" onchange="updateFixed(${i},'color',this.value)" />
+        <input type="text" class="fc-name" value="${f.name}" placeholder="Fixed cost" onchange="updateFixed(${i},'name',this.value)" />
+        <button class="del-btn" onclick="delFixed(${i})">×</button>
+      </div>
+      <div class="fc-edit-bot">
+        <span style="font-size:11px;color:var(--muted);flex-shrink:0">$/mo</span>
+        <input type="number" class="fc-amt" value="${f.monthly||0}" placeholder="0" inputmode="decimal" min="0" step="1" onchange="updateFixed(${i},'monthly',this.value)" />
+        <select class="fc-type" onchange="updateFixed(${i},'billingType',this.value);render()">
+          <option value="split" ${!isDate?'selected':''}>÷ each period</option>
+          <option value="date"  ${isDate ?'selected':''}>On specific day</option>
+        </select>
+        ${dayField}
+      </div>
+    </div>`;
   }).join('');
 
   const quickAddRows = (s.quickAdds || []).map((q, i) => `
@@ -837,9 +962,9 @@ function renderSettings() {
       <div class="field">
         <label>Pay Frequency</label>
         <select onchange="updateSetting('payFreq', this.value)">
-          <option value="weekly"     ${s.payFreq==='weekly'?'selected':''}>Weekly</option>
-          <option value="biweekly"   ${s.payFreq==='biweekly'?'selected':''}>Bi-weekly (Every 2 weeks)</option>
-          <option value="monthly"    ${s.payFreq==='monthly'?'selected':''}>Monthly</option>
+          <option value="weekly"   ${s.payFreq==='weekly'?'selected':''}>Weekly</option>
+          <option value="biweekly" ${s.payFreq==='biweekly'?'selected':''}>Bi-weekly (Every 2 weeks)</option>
+          <option value="monthly"  ${s.payFreq==='monthly'?'selected':''}>Monthly</option>
         </select>
       </div>
       <div class="field">
@@ -897,7 +1022,7 @@ function renderSettings() {
     <div style="text-align:center;font-size:11px;color:var(--muted);margin-top:16px;margin-bottom:8px;font-family:var(--font-mono)">Budget · saved locally on this device</div>`;
 }
 
-// ── ACTIONS ───────────────────────────────────────────────────────────────
+// ── SETTINGS ACTIONS ──────────────────────────────────────────────────────
 function updateSetting(key, val) {
   if (key === 'tithe') {
     const n = parseFloat(val);
@@ -908,7 +1033,6 @@ function updateSetting(key, val) {
   }
   save(); toast('Saved');
 }
-
 function updateCat(k, field, val) {
   if (field === 'monthly') S.settings.cats[k][field] = parseFloat(val) || 0;
   else S.settings.cats[k][field] = val;
@@ -916,15 +1040,13 @@ function updateCat(k, field, val) {
 }
 function addCat() {
   const id = 'cat_' + Date.now();
-  S.settings.cats[id] = { label:'New Category', color:'#00e5a0', monthly:0 };
+  S.settings.cats[id] = {label: 'New Category', color: '#00e5a0', monthly: 0};
   save(); render();
 }
 function delCat(k) {
   if (!confirm('Delete this category? Associated history items will lose their mapped color.')) return;
-  delete S.settings.cats[k];
-  save(); render();
+  delete S.settings.cats[k]; save(); render();
 }
-
 function updateFixed(idx, field, val) {
   if (field === 'monthly')    S.settings.fixedCosts[idx][field] = parseFloat(val) || 0;
   else if (field === 'billingDay') S.settings.fixedCosts[idx][field] = parseInt(val) || 1;
@@ -932,15 +1054,13 @@ function updateFixed(idx, field, val) {
   save();
 }
 function addFixed() {
-  S.settings.fixedCosts.push({ name:'New Cost', monthly:0, color:'#ffb347', billingType:'split', billingDay:1 });
+  S.settings.fixedCosts.push({name: 'New Cost', monthly: 0, color: '#ffb347', billingType: 'split', billingDay: 1});
   save(); render();
 }
 function delFixed(idx) {
   if (!confirm('Delete this fixed cost?')) return;
-  S.settings.fixedCosts.splice(idx, 1);
-  save(); render();
+  S.settings.fixedCosts.splice(idx, 1); save(); render();
 }
-
 function updateQuick(idx, field, val) {
   if (field === 'amount') S.settings.quickAdds[idx][field] = parseFloat(val) || 0;
   else S.settings.quickAdds[idx][field] = val;
@@ -948,34 +1068,25 @@ function updateQuick(idx, field, val) {
 }
 function addQuick() {
   const firstCat = Object.keys(S.settings.cats)[0] || 'other';
-  S.settings.quickAdds.push({ name:'New Item', amount:0, amtType:'fixed', color:'#555555', cat:firstCat });
+  S.settings.quickAdds.push({name: 'New Item', amount: 0, amtType: 'fixed', color: '#555555', cat: firstCat});
   save(); render();
 }
 function delQuick(idx) {
   if (!confirm('Delete this quick shortcut?')) return;
-  S.settings.quickAdds.splice(idx, 1);
-  save(); render();
+  S.settings.quickAdds.splice(idx, 1); save(); render();
 }
 
+// ── PERIOD ACTIONS ────────────────────────────────────────────────────────
 function setIncome(v) {
   if (!S.currentPeriod) return;
   S.currentPeriod.income = parseFloat(v) || 0;
   save(); render();
 }
 
-function newPeriodObj(isoDate, carry) {
-  return {
-    startDate: new Date(isoDate + 'T00:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}),
-    startDateISO: isoDate,
-    income: 0, expenses: [], carryover: carry || {}, tithePaid: false
-  };
-}
-
 function startPeriod() {
   if (!S.settings.lastPayday) {
     alert('Please set your Most Recent Payday in the Settings tab first!');
-    switchTab('settings');
-    return;
+    switchTab('settings'); return;
   }
   if (S.currentPeriod && parseFloat(S.currentPeriod.income||0) > 0) {
     if (!confirm('Archive current period and start a new one?\nCategory leftovers will carry forward.')) return;
@@ -1009,14 +1120,14 @@ function addExpense() {
   const name = document.getElementById('exp-name')?.value?.trim();
   const amt  = parseFloat(document.getElementById('exp-amt')?.value);
   const cat  = document.getElementById('exp-cat')?.value;
-  if (!name) { toast('Enter a description'); return; }
+  if (!name)           { toast('Enter a description'); return; }
   if (isNaN(amt)||amt<=0) { toast('Enter a valid amount'); return; }
   if (!S.currentPeriod) {
     if (!confirm('No active period. Start one now?')) return;
     const most = getMostRecentPayday();
     S.currentPeriod = newPeriodObj(most ? most.toISOString().slice(0,10) : todayISO(), {});
   }
-  S.currentPeriod.expenses.push({name, amount:amt, cat, date:todayStr()});
+  S.currentPeriod.expenses.push({name, amount: amt, cat, date: todayStr(), dateISO: todayISO()});
   save(); toast(`Added: ${name}`);
   document.getElementById('exp-name').value = '';
   document.getElementById('exp-amt').value  = '';
@@ -1030,62 +1141,39 @@ function quickAdd(i) {
     const most = getMostRecentPayday();
     S.currentPeriod = newPeriodObj(most ? most.toISOString().slice(0,10) : todayISO(), {});
   }
-  const amt = calcQuickAmt(q);
-  S.currentPeriod.expenses.push({name:q.name, amount:amt, cat:q.cat, date:todayStr()});
+  S.currentPeriod.expenses.push({name: q.name, amount: calcQuickAmt(q), cat: q.cat, date: todayStr(), dateISO: todayISO()});
   save(); toast(`Added: ${q.name}`); switchTab('home');
-}
-
-// ── ORDINAL HELPER ────────────────────────────────────────────────────────
-function ordinal(n) {
-  n = parseInt(n) || 1;
-  const s = ['th','st','nd','rd'];
-  const v = n % 100;
-  return n + (s[(v-20)%10]||s[v]||s[0]);
 }
 
 // ── DATA MANAGEMENT ───────────────────────────────────────────────────────
 function exportData() {
-  const dataStr = JSON.stringify(S, null, 2);
-  const blob = new Blob([dataStr], {type:'application/json'});
+  const blob = new Blob([JSON.stringify(S, null, 2)], {type: 'application/json'});
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement('a');
-  a.href = url;
-  a.download = `budget_backup_${new Date().toISOString().slice(0,10)}.json`;
-  a.click();
-  URL.revokeObjectURL(url);
+  a.href = url; a.download = `budget_backup_${new Date().toISOString().slice(0,10)}.json`;
+  a.click(); URL.revokeObjectURL(url);
 }
-
 function importData(event) {
-  const file = event.target.files[0];
-  if (!file) return;
+  const file = event.target.files[0]; if (!file) return;
   const reader = new FileReader();
   reader.onload = (e) => {
     try {
       const imported = JSON.parse(e.target.result);
       if (imported && imported.settings) {
         if (!confirm('Warning: This will overwrite ALL your current data. Continue?')) return;
-        S = imported;
-        save(); render(); toast('Data restored successfully!');
-      } else {
-        alert('Invalid backup file format.');
-      }
+        S = imported; save(); render(); toast('Data restored successfully!');
+      } else { alert('Invalid backup file format.'); }
     } catch { alert('Error reading the backup file.'); }
     event.target.value = '';
   };
   reader.readAsText(file);
 }
-
 function resetAll() {
   if (!confirm('Delete ALL data permanently?')) return;
   S = {
-    currentPeriod: null,
-    history: [],
-    settings: {
-      tithe: 10, payFreq:'biweekly', lastPayday:'',
-      cats: {...DEFAULT_CATS},
-      fixedCosts: [...DEFAULT_FIXED],
-      quickAdds: [...DEFAULT_QUICK]
-    }
+    currentPeriod: null, history: [],
+    settings: {tithe: 10, payFreq: 'biweekly', lastPayday: '',
+      cats: {...DEFAULT_CATS}, fixedCosts: [...DEFAULT_FIXED], quickAdds: [...DEFAULT_QUICK]}
   };
   save(); render(); toast('All data cleared');
 }
@@ -1095,9 +1183,7 @@ load();
 render();
 </script>
 <script>
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('sw.js');
-  }
+  if ('serviceWorker' in navigator) { navigator.serviceWorker.register('sw.js'); }
 </script>
 </body>
 </html>
