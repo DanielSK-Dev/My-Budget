@@ -24,25 +24,20 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 #app{display:flex;flex-direction:column;height:100dvh}
 #screen{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;padding:20px 16px 16px;overscroll-behavior-y:contain}
 #screen::-webkit-scrollbar{display:none}
-
 #nav{display:flex;background:var(--surface);border-top:1px solid var(--border);padding-bottom:var(--safe-bottom);flex-shrink:0}
 .nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 2px 8px;border:none;background:none;color:var(--muted);cursor:pointer;font-size:9px;font-family:var(--font);letter-spacing:.04em;transition:color .15s}
 .nav-btn svg{width:20px;height:20px}
 .nav-btn.active{color:var(--green)}
-
 .page-header{margin-bottom:20px}
 .page-header h1{font-size:24px;font-weight:500;letter-spacing:-.02em}
 .page-header p{font-size:13px;color:var(--muted);margin-top:3px}
-
 .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:16px;margin-bottom:12px}
 .card-label{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:12px;font-family:var(--font-mono)}
-
 .metrics{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
 .metric{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:14px}
 .metric .lbl{font-size:10px;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;font-family:var(--font-mono);margin-bottom:6px}
 .metric .val{font-size:20px;font-weight:500;font-family:var(--font-mono);letter-spacing:-.02em}
 .g{color:var(--green)}.r{color:var(--red)}.a{color:var(--amber)}
-
 .cat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);margin-bottom:12px;overflow:hidden}
 .cat-header{display:flex;align-items:center;gap:10px;margin-bottom:10px}
 .pip{width:4px;border-radius:2px;flex-shrink:0}
@@ -52,7 +47,6 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 .prog-fill{height:100%;border-radius:2px;transition:width .4s cubic-bezier(.4,0,.2,1)}
 .prog-labels{display:flex;justify-content:space-between;font-size:10px;color:var(--muted);font-family:var(--font-mono)}
 .carry-tag{font-size:10px;font-family:var(--font-mono);color:var(--green);margin-top:4px}
-
 .exp-item{display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--border)}
 .exp-item:last-child{border-bottom:none}
 .exp-info{flex:1;min-width:0}
@@ -61,7 +55,6 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 .exp-amt{font-size:14px;font-weight:500;font-family:var(--font-mono);white-space:nowrap}
 .del{background:none;border:none;color:var(--muted);cursor:pointer;font-size:20px;padding:2px 4px;line-height:1;flex-shrink:0}
 .del:active{color:var(--red)}
-
 .fixed-row{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border);transition:opacity .2s}
 .fixed-row:last-child{border-bottom:none}
 .fixed-row.dimmed{opacity:.35}
@@ -70,12 +63,10 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 .fixed-tag{font-size:9px;font-family:var(--font-mono);letter-spacing:.04em;padding:2px 5px;border-radius:4px;margin-left:5px;vertical-align:middle}
 .fixed-tag.due{background:var(--green-dim);color:var(--green)}
 .fixed-tag.skip{background:var(--surface2);color:var(--muted)}
-
 .sum-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px}
 .sum-row:last-child{border-bottom:none}
 .sum-label{color:var(--muted)}
 .sum-val{font-family:var(--font-mono);font-weight:500}
-
 .field{display:flex;flex-direction:column;gap:6px;margin-bottom:12px}
 .field label{font-size:11px;color:var(--muted);letter-spacing:.06em;font-family:var(--font-mono)}
 input[type=text],input[type=number],input[type=date],select{
@@ -88,13 +79,11 @@ input:focus,select:focus{border-color:var(--green)}
 select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23666' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 14px center;padding-right:36px}
 select option{background:#1e1e1e}
 .row-fields{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-
 .btn{display:block;width:100%;padding:14px;border-radius:10px;border:none;font-family:var(--font);font-size:15px;font-weight:500;cursor:pointer;transition:opacity .15s,transform .1s;text-align:center}
 .btn:active{transform:scale(.98);opacity:.85}
 .btn-primary{background:var(--green);color:#000}
 .btn-ghost{background:var(--surface2);color:var(--text);border:1px solid var(--border);margin-top:8px}
 .btn-danger{background:var(--red-dim);color:var(--red);border:1px solid var(--red);margin-top:8px}
-
 .quick-item{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)}
 .quick-item:last-child{border-bottom:none}
 .quick-info{flex:1;min-width:0}
@@ -102,34 +91,27 @@ select option{background:#1e1e1e}
 .quick-sub{font-size:11px;color:var(--muted);font-family:var(--font-mono);margin-top:1px}
 .quick-btn{background:var(--surface2);border:1px solid var(--border);color:var(--green);border-radius:8px;padding:7px 14px;font-size:13px;font-weight:500;cursor:pointer;white-space:nowrap}
 .quick-btn:active{opacity:.7}
-
 .badge{display:inline-block;font-size:10px;padding:2px 7px;border-radius:6px;font-family:var(--font-mono);margin-top:3px}
 .badge.g{background:var(--green-dim);color:var(--green)}
 .badge.r{background:var(--red-dim);color:var(--red)}
-
 .period-strip{background:var(--green-dim);border:1px solid #00e5a025;border-radius:var(--r);padding:12px 14px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between}
 .ps-label{font-size:11px;color:var(--green);font-family:var(--font-mono);letter-spacing:.06em}
 .ps-date{font-size:11px;color:var(--muted);font-family:var(--font-mono);margin-top:2px}
 .arch-btn{background:transparent;border:1px solid var(--border);border-radius:8px;color:var(--muted);font-size:12px;padding:6px 12px;cursor:pointer;font-family:var(--font)}
 .arch-btn:active{opacity:.7}
-
 .empty{text-align:center;padding:24px 0;color:var(--muted);font-size:13px}
 .sec-div{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);font-family:var(--font-mono);margin:16px 0 10px}
-
 #toast{position:fixed;bottom:calc(80px + var(--safe-bottom));left:50%;transform:translateX(-50%) translateY(20px);background:var(--surface);border:1px solid var(--border);border-radius:30px;padding:10px 20px;font-size:13px;white-space:nowrap;opacity:0;transition:opacity .2s,transform .2s;pointer-events:none;z-index:999}
 #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
-
 .income-big{display:flex;align-items:center;gap:4px}
 .income-big .prefix{font-size:28px;color:var(--muted);font-family:var(--font-mono)}
 .income-big input{font-size:32px;font-family:var(--font-mono);font-weight:500;flex:1;background:none;border:none;border-bottom:2px solid var(--border);border-radius:0;padding:4px 0;transition:border-color .2s;outline:none}
 .income-big input:focus{border-color:var(--green)}
-
 .be-row{display:flex;align-items:center;gap:8px;padding:9px 0;border-bottom:1px solid var(--border)}
 .be-row:last-child{border-bottom:none}
 .be-row input{font-size:14px;padding:7px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:var(--font-mono)}
 .be-row input.input-name { flex:1; text-align:left; font-family:var(--font); min-width:0; }
 .be-row input.input-num { width:70px; text-align:right; }
-
 /* Fixed cost edit rows */
 .fc-edit-row{padding:12px 0;border-bottom:1px solid var(--border)}
 .fc-edit-row:last-child{border-bottom:none}
@@ -140,14 +122,12 @@ select option{background:#1e1e1e}
 .fc-edit-row input.fc-amt{width:76px;text-align:right;font-family:var(--font-mono)}
 .fc-edit-row input.fc-day{width:54px;text-align:center;font-family:var(--font-mono)}
 .fc-edit-row select.fc-type{flex:1}
-
 /* Quick add edit rows */
 .quick-edit-row { display:flex; flex-direction:column; gap:8px; padding:14px 0; border-bottom:1px solid var(--border); }
 .quick-edit-row:last-child { border-bottom:none; }
 .qe-top, .qe-bot { display:flex; align-items:center; gap:8px; width:100%; }
 .qe-bot { padding-left:36px; }
 .quick-edit-row input, .quick-edit-row select { font-size:13px; padding:7px 8px; background:var(--surface2); border:1px solid var(--border); border-radius:8px; color:var(--text); font-family:var(--font); min-width:0; }
-
 .color-picker { width:28px; height:28px; padding:0; border:none; border-radius:14px; cursor:pointer; background:none; flex-shrink:0; }
 .color-picker::-webkit-color-swatch-wrapper { padding: 0; }
 .color-picker::-webkit-color-swatch { border: 1px solid var(--border); border-radius: 14px; }
@@ -155,17 +135,14 @@ select option{background:#1e1e1e}
 .del-btn:active { color:var(--red); }
 .add-btn { width:100%; background:var(--surface2); border:1px dashed var(--border); color:var(--muted); padding:10px; border-radius:8px; margin-top:10px; cursor:pointer; font-family:var(--font); font-size: 14px; }
 .add-btn:active { background:var(--border); }
-
 /* ── History transaction rows ── */
 details > summary { list-style: none; }
 details > summary::-webkit-details-marker { display: none; }
-
 .hist-exps-list { margin-top: 8px; padding-top: 12px; border-top: 1px solid var(--surface2); }
 .hist-section-hdr { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
 .hist-section-label { font-size:10px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); font-family:var(--font-mono); }
 .hist-add-btn { background:none; border:1px solid var(--border); border-radius:6px; color:var(--green); font-size:11px; font-family:var(--font-mono); padding:3px 8px; cursor:pointer; }
 .hist-add-btn:active { opacity:.7; }
-
 .hist-exp-row { display:flex; align-items:center; gap:5px; padding:8px 0; border-bottom:1px solid #1e1e1e; font-size:13px; }
 .hist-exp-row:last-child { border-bottom:none; }
 .hist-exp-date { font-size:10px; color:var(--muted); font-family:var(--font-mono); min-width:52px; flex-shrink:0; }
@@ -175,7 +152,6 @@ details > summary::-webkit-details-marker { display: none; }
 .hist-icon-btn { background:none; border:none; color:var(--muted); cursor:pointer; padding:2px 4px; font-size:15px; line-height:1; flex-shrink:0; }
 .hist-icon-btn:active { color:var(--green); }
 .hist-icon-btn.del-icon:active { color:var(--red); }
-
 /* Inline edit form in history */
 .hist-edit-wrap { background:var(--bg); border:1px solid var(--border); border-left:3px solid var(--green); border-radius:9px; padding:10px; margin:4px 0; }
 .hist-edit-r1 { display:flex; gap:7px; margin-bottom:7px; }
@@ -186,14 +162,12 @@ details > summary::-webkit-details-marker { display: none; }
 .he-save:active { opacity:.8; }
 .he-cancel { background:none; border:1px solid var(--border); color:var(--muted); border-radius:7px; padding:7px 10px; font-size:12px; cursor:pointer; flex-shrink:0; }
 .he-cancel:active { opacity:.7; }
-
 /* Inline add form in history */
 .hist-add-wrap { background:var(--bg); border:1px solid var(--border); border-left:3px solid var(--green); border-radius:9px; padding:12px; margin-top:8px; }
 .hist-add-wrap .ha-row { display:flex; gap:7px; margin-bottom:7px; }
 .hist-add-wrap .ha-row:last-child { margin-bottom:0; }
 .hist-add-wrap input, .hist-add-wrap select { font-size:12px; padding:7px 8px; background:var(--surface2); border:1px solid var(--border); border-radius:7px; color:var(--text); font-family:var(--font); min-width:0; outline:none; }
 .hist-add-wrap input:focus, .hist-add-wrap select:focus { border-color:var(--green); }
-
 /* Category spending summary bars in history */
 .cat-summary-block { margin-top:12px; padding-top:12px; border-top:1px solid var(--surface2); }
 .cat-sum-row { display:flex; align-items:center; gap:8px; padding:5px 0; }
@@ -202,10 +176,46 @@ details > summary::-webkit-details-marker { display: none; }
 .cat-sum-bar-fill { height:100%; border-radius:2px; }
 .cat-sum-amt { font-size:12px; font-family:var(--font-mono); min-width:56px; text-align:right; }
 
-details[open] summary ~ * { animation: slideDown .25s cubic-bezier(0.16, 1, 0.3, 1); }
-@keyframes slideDown { from { opacity:0; transform:translateY(-8px); } to { opacity:1; transform:translateY(0); } }
+/* ── ANIMATED <details> ──
+   The native <details> element has no transition between open/closed.
+   We animate the height in JS (see animateDetails) — these styles support that
+   and add a subtle fade/slide for the inner content while it's expanding. */
+details { will-change: height; }
+details.is-animating { overflow: hidden; }
+details > summary {
+  transition: background-color .15s ease;
+}
+details > summary .summary-chevron {
+  display: inline-block;
+  margin-left: 8px;
+  font-size: 11px;
+  color: var(--muted);
+  transition: transform .3s cubic-bezier(0.16, 1, 0.3, 1);
+  flex-shrink: 0;
+}
+details[open] > summary .summary-chevron {
+  transform: rotate(180deg);
+}
+details[open] > summary ~ * {
+  animation: detailsContentIn .3s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+@keyframes detailsContentIn {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+details.is-animating[open] > summary ~ * {
+  animation: none; /* JS-driven height handles the visual; skip the inner anim while collapsing */
+}
+
 @keyframes slideUp { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
 .card,.metrics,.cat-card{animation:slideUp .2s ease both}
+@media (prefers-reduced-motion: reduce) {
+  details, details.is-animating, .card, .metrics, .cat-card {
+    animation: none !important;
+    transition: none !important;
+  }
+  details[open] > summary ~ * { animation: none !important; }
+}
 </style>
 </head>
 <body>
@@ -235,11 +245,9 @@ details[open] summary ~ * { animation: slideDown .25s cubic-bezier(0.16, 1, 0.3,
   </nav>
 </div>
 <div id="toast"></div>
-
 <script>
 // ── VERSION ───────────────────────────────────────────────────────────────
-const APP_VERSION = '1.5.0';
-
+const APP_VERSION = '1.5.1';
 // ── DEFAULTS ──────────────────────────────────────────────────────────────
 const DEFAULT_CATS = {
   groceries: {label:'Groceries',     color:'#00c97a', monthly:200},
@@ -255,7 +263,6 @@ const DEFAULT_QUICK = [
   {name:'Gas fillup', amount:40, amtType:'fixed', cat:'trans',      color:'#4d9fff'},
   {name:'Groceries',  amount:50, amtType:'fixed', cat:'groceries',  color:'#00c97a'},
 ];
-
 // ── STATE ─────────────────────────────────────────────────────────────────
 const SK = 'budget_v9';
 let S = {
@@ -270,11 +277,9 @@ let S = {
     quickAdds:  [...DEFAULT_QUICK],
   }
 };
-
 let _autoRollMsg = null;  // set by checkAutoRollover, shown after render
 let _histEdit    = null;  // {pid, ei} — which history expense is being edited
 let _histAdd     = null;  // pid — which period is showing the inline add form
-
 // ── LOAD / SAVE ───────────────────────────────────────────────────────────
 function load() {
   try {
@@ -307,7 +312,6 @@ function load() {
   recomputeCarryoverChain();
 }
 function save() { try { localStorage.setItem(SK, JSON.stringify(S)); } catch(e) {} }
-
 // ── HELPERS ───────────────────────────────────────────────────────────────
 const fmt = n => '$' + Math.abs(parseFloat(n)||0).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2});
 const todayStr = () => new Date().toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'});
@@ -332,10 +336,8 @@ function ordinal(n) {
   const s = ['th','st','nd','rd'], v = n % 100;
   return n + (s[(v-20)%10] || s[v] || s[0]);
 }
-
 // ── PAYDAY MATH ───────────────────────────────────────────────────────────
 const MS_DAY = 86400000;
-
 function getMostRecentPayday() {
   if (!S.settings.lastPayday) return null;
   const last = new Date(S.settings.lastPayday + 'T00:00:00');
@@ -354,7 +356,6 @@ function getMostRecentPayday() {
     return new Date(last.getTime() + Math.floor((now - last) / interval) * interval);
   }
 }
-
 function getNextPaydayAfter(fromDate) {
   if (!S.settings.lastPayday) return null;
   const last = new Date(S.settings.lastPayday + 'T00:00:00');
@@ -368,7 +369,6 @@ function getNextPaydayAfter(fromDate) {
     return new Date(last.getTime() + cycles * interval);
   }
 }
-
 function getPaydayInfo() {
   if (!S.settings.lastPayday) return {date:'Not set', days:'?'};
   const now  = new Date(); now.setHours(0,0,0,0);
@@ -379,7 +379,6 @@ function getPaydayInfo() {
   if (!next) return {date:'Not set', days:'?'};
   return {date: next.toLocaleDateString('en-US', {month:'short', day:'numeric'}), days: Math.round((next - now) / MS_DAY)};
 }
-
 function getPeriodDateRange(period) {
   const start = period?.startDateISO
     ? new Date(period.startDateISO + 'T00:00:00')
@@ -394,7 +393,6 @@ function getPeriodDateRange(period) {
   }
   return {start, end};
 }
-
 function fixedCostForPeriod(f, period) {
   const monthly = parseFloat(f.monthly || 0);
   if (f.billingType === 'date') {
@@ -414,10 +412,8 @@ function fixedCostForPeriod(f, period) {
   const ppm = S.settings.payFreq === 'weekly' ? 4 : S.settings.payFreq === 'monthly' ? 1 : 2;
   return monthly / ppm;
 }
-
 const fixedForPeriod = period => (S.settings.fixedCosts || []).reduce((a,f) => a + fixedCostForPeriod(f, period), 0);
 const fixedPerPeriod = () => fixedForPeriod(S.currentPeriod);
-
 // ── AUTO ROLLOVER ─────────────────────────────────────────────────────────
 function checkAutoRollover() {
   if (!S.currentPeriod || !S.settings.lastPayday) return;
@@ -442,22 +438,18 @@ function checkAutoRollover() {
     recomputeCarryoverChain();
   }
 }
-
 // ── TITHE / TOAST ─────────────────────────────────────────────────────────
 const titheAmt = inc => inc * (S.settings.tithe / 100);
-
 function toggleTithe() {
   if (!S.currentPeriod) return;
   S.currentPeriod.tithePaid = !S.currentPeriod.tithePaid;
   save(); render();
 }
-
 function toast(msg) {
   const el = document.getElementById('toast');
   el.textContent = msg; el.classList.add('show');
   setTimeout(() => el.classList.remove('show'), 2500);
 }
-
 // ── CATEGORY MATH ─────────────────────────────────────────────────────────
 function catBudget(k) {
   const ppm = S.settings.payFreq === 'weekly' ? 4 : S.settings.payFreq === 'monthly' ? 1 : 2;
@@ -485,7 +477,6 @@ function computeCarryover(period) {
   });
   return out;
 }
-
 /**
  * Walk every period in history order and recompute each period's incoming
  * carryover from the output of the one before it, then update currentPeriod.
@@ -510,7 +501,6 @@ function calcQuickAmt(q) {
   if (q.amtType === 'pct_budget')  return catBudget(q.cat) * (v / 100);
   return v;
 }
-
 // ── PERIOD HELPERS ────────────────────────────────────────────────────────
 function getPeriodById(pid) {
   if (pid === 'current') return S.currentPeriod;
@@ -523,7 +513,6 @@ function newPeriodObj(isoDate, carry) {
     income: 0, expenses: [], carryover: carry || {}, tithePaid: false,
   };
 }
-
 // ── ROUTING ───────────────────────────────────────────────────────────────
 let TAB = 'home';
 function switchTab(t) {
@@ -544,7 +533,6 @@ function render() {
     setTimeout(() => toast(msg), 150);
   }
 }
-
 // ── HOME ──────────────────────────────────────────────────────────────────
 function renderHome() {
   const cp = S.currentPeriod;
@@ -554,7 +542,6 @@ function renderHome() {
       <div style="font-size:13px;color:var(--muted);margin-bottom:16px">No active period.<br>Set your payday in settings and start a period!</div>
       <button class="btn btn-primary" onclick="startPeriod()">Start pay period</button>
     </div>`;
-
   const income    = parseFloat(cp.income || 0);
   const fixed     = fixedPerPeriod();
   const tithe     = titheAmt(income);
@@ -566,7 +553,6 @@ function renderHome() {
   const rate      = income > 0 ? Math.round(remaining / income * 100) : null;
   const barCol    = pct > 90 ? 'var(--red)' : pct > 70 ? 'var(--amber)' : 'var(--green)';
   const payInfo   = getPaydayInfo();
-
   const expRows = exps.length === 0
     ? '<div class="empty">No variable expenses yet</div>'
     : exps.slice().reverse().map((e, ri) => {
@@ -582,7 +568,6 @@ function renderHome() {
           <button class="del" onclick="delExp(${idx})">×</button>
         </div>`;
       }).join('');
-
   const fixedRows = (S.settings.fixedCosts || []).map(f => {
     const amt   = fixedCostForPeriod(f, cp);
     const isDue = amt > 0;
@@ -598,9 +583,7 @@ function renderHome() {
       </div>
     </div>`;
   }).join('');
-
   const titheBtn = `<button onclick="toggleTithe()" style="background:none;border:1px solid ${cp.tithePaid?'var(--green)':'var(--border)'};color:${cp.tithePaid?'var(--green)':'var(--muted)'};border-radius:4px;padding:2px 6px;font-size:10px;cursor:pointer;margin-left:6px;font-family:var(--font);transition:all 0.15s">${cp.tithePaid ? '✓ Paid' : 'Mark paid'}</button>`;
-
   return `
     <div class="page-header"><h1>Budget</h1></div>
     <div class="period-strip">
@@ -610,7 +593,6 @@ function renderHome() {
       </div>
       <button class="arch-btn" onclick="archivePeriod()">Archive</button>
     </div>
-
     <div class="card">
       <div class="card-label">Income this period</div>
       <div class="income-big">
@@ -618,14 +600,12 @@ function renderHome() {
         <input type="number" id="inc-inp" value="${cp.income||''}" placeholder="0.00" inputmode="decimal" onchange="setIncome(this.value)" />
       </div>
     </div>
-
     <div class="metrics">
       <div class="metric"><div class="lbl">Fixed + tithe</div><div class="val">${fmt(fixed+tithe)}</div></div>
       <div class="metric"><div class="lbl">Variable spent</div><div class="val">${fmt(varSpent)}</div></div>
       <div class="metric"><div class="lbl">Investable</div><div class="val ${remaining<0?'r':'g'}">${remaining<0?'−':''}${fmt(remaining)}</div></div>
       <div class="metric"><div class="lbl">Savings rate</div><div class="val ${rate!==null&&rate<0?'r':'g'}">${rate!==null ? rate+'%' : '—'}</div></div>
     </div>
-
     <div class="card">
       <div class="card-label">Breakdown</div>
       <div class="sum-row"><span class="sum-label">Gross income</span><span class="sum-val">${fmt(income)}</span></div>
@@ -640,7 +620,6 @@ function renderHome() {
         <span class="sum-val" style="color:${remaining<0?'var(--red)':'var(--green)'};font-size:16px">${remaining<0?'−':''}${fmt(remaining)}</span>
       </div>
     </div>
-
     <div class="card">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
         <div class="card-label" style="margin-bottom:0">Budget used</div>
@@ -653,20 +632,17 @@ function renderHome() {
         <span>${fmt(totalOut)} committed</span><span>${fmt(Math.max(0,remaining))} free</span>
       </div>
     </div>
-
     <div class="card">
       <div class="card-label">Fixed costs this period</div>
       ${fixedRows || '<div class="empty" style="padding:10px 0">No fixed costs</div>'}
       <div style="font-size:10px;color:var(--muted);font-family:var(--font-mono);margin-top:10px;padding-top:8px;border-top:1px solid var(--border)">Dimmed items billed on a specific day — not in this period</div>
     </div>
-
     <div class="card">
       <div class="card-label">Variable expenses</div>
       ${expRows}
       <button class="btn btn-ghost" onclick="switchTab('log')" style="margin-top:${exps.length>0?'12':'0'}px">+ Add expense</button>
     </div>`;
 }
-
 // ── CATEGORY BUDGETS ──────────────────────────────────────────────────────
 function renderCats() {
   const cats       = S.settings.cats;
@@ -676,7 +652,6 @@ function renderCats() {
   if (!visibleCats.length) return `
     <div class="page-header"><h1>Budgets</h1><p>Per-category spending tracker</p></div>
     <div class="card"><div class="empty">Set monthly budgets in Settings to see tracking here</div></div>`;
-
   const cards = visibleCats.map(([k,c]) => {
     const budget   = catBudget(k);            // base + positive carry only
     const debt     = catDebt(k);              // absolute debt from last period
@@ -688,7 +663,6 @@ function renderCats() {
     const remClass = rem<0 ? 'r' : rem < budget*0.25 ? 'a' : 'g';
     const carry    = S.currentPeriod?.carryover?.[k] || 0;
     const catExps  = (S.currentPeriod?.expenses||[]).filter(e => e.cat===k);
-
     // Debt row shown at top of transaction list
     const debtRow = debt > 0
       ? `<div class="hist-exp-row" style="opacity:.7">
@@ -697,24 +671,22 @@ function renderCats() {
            <span class="hist-exp-amt" style="color:var(--red)">−${fmt(debt)}</span>
          </div>`
       : '';
-
     const expRows = catExps.slice().reverse().map(e => `
       <div class="hist-exp-row">
         <span class="hist-exp-date">${e.date||''}</span>
         <span class="hist-exp-name">${e.name}</span>
         <span class="hist-exp-amt">${fmt(e.amount)}</span>
       </div>`).join('');
-
     const expsHtml = (debtRow || expRows)
       ? debtRow + expRows
       : '<div style="padding:8px 0;color:var(--muted);font-size:12px">No transactions yet.</div>';
-
     return `<details class="cat-card" style="padding:0">
       <summary style="padding:16px;outline:none;cursor:pointer;display:block">
         <div class="cat-header">
           <div class="pip" style="background:${c.color};height:36px"></div>
           <div class="cat-name">${c.label}</div>
           <div class="cat-rem ${remClass}">${rem<0?'−':''}${fmt(rem)}</div>
+          <span class="summary-chevron">▾</span>
         </div>
         <div class="prog-track"><div class="prog-fill" style="width:${pct}%;background:${barCol}"></div></div>
         <div class="prog-labels">
@@ -730,10 +702,8 @@ function renderCats() {
       </div>
     </details>`;
   }).join('');
-
   return `<div class="page-header"><h1>Budgets</h1><p>Leftover rolls over each period</p></div>${cards}`;
 }
-
 // ── ADD EXPENSE ───────────────────────────────────────────────────────────
 function renderLog() {
   const catOpts  = Object.entries(S.settings.cats).map(([k,c]) => `<option value="${k}">${c.label}</option>`).join('');
@@ -762,7 +732,6 @@ function renderLog() {
     <div class="sec-div">Quick add</div>
     <div class="card">${quickRows || '<div class="empty" style="padding:10px 0">No quick adds setup</div>'}</div>`;
 }
-
 // ── HISTORY ───────────────────────────────────────────────────────────────
 function buildCatSummaryHtml(period) {
   const byCat = {};
@@ -787,7 +756,6 @@ function buildCatSummaryHtml(period) {
     ${rows}
   </div>`;
 }
-
 function renderHistExpRow(pid, ei, e) {
   const c = S.settings.cats[e.cat] || {label: e.cat, color: '#555'};
   return `<div class="hist-exp-row">
@@ -800,7 +768,6 @@ function renderHistExpRow(pid, ei, e) {
     <button class="hist-icon-btn del-icon" onclick="delHistExp('${pid}',${ei})"  title="Delete">×</button>
   </div>`;
 }
-
 function renderHistEditRow(pid, ei, e) {
   const catOpts = Object.entries(S.settings.cats).map(([k,c]) =>
     `<option value="${k}" ${e.cat===k?'selected':''}>${c.label}</option>`).join('');
@@ -818,7 +785,6 @@ function renderHistEditRow(pid, ei, e) {
     </div>
   </div>`;
 }
-
 function renderHistAddForm(pid) {
   const catOpts = Object.entries(S.settings.cats).map(([k,c]) =>
     `<option value="${k}">${c.label}</option>`).join('');
@@ -835,14 +801,12 @@ function renderHistAddForm(pid) {
     </div>
   </div>`;
 }
-
 function renderHistory() {
   const hist = S.history || [];
   const all  = [
     ...hist.map((p, i) => ({p, pid: `h${i}`})),
     ...(S.currentPeriod ? [{p: S.currentPeriod, pid: 'current'}] : []),
   ].reverse();
-
   const tInc = all.reduce((a, {p}) => a + parseFloat(p.income||0), 0);
   const tOut = all.reduce((a, {p}) => {
     const inc = parseFloat(p.income||0);
@@ -850,7 +814,6 @@ function renderHistory() {
   }, 0);
   const tSav = tInc - tOut;
   const avg  = tInc > 0 ? Math.round(tSav / tInc * 100) : 0;
-
   const rows = all.length === 0
     ? '<div class="empty">No periods yet</div>'
     : all.map(({p, pid}) => {
@@ -859,17 +822,14 @@ function renderHistory() {
         const out = (p.expenses||[]).reduce((a,e) => a+parseFloat(e.amount), 0) + fixedForPeriod(p) + titheAmt(inc);
         const sv  = inc - out;
         const rt  = inc > 0 ? Math.round(sv / inc * 100) : 0;
-
         const expItems = (p.expenses||[]).map((e, ei) => {
           if (_histEdit && _histEdit.pid === pid && _histEdit.ei === ei)
             return renderHistEditRow(pid, ei, e);
           return renderHistExpRow(pid, ei, e);
         }).join('');
-
         const addForm = _histAdd === pid ? renderHistAddForm(pid) : '';
         const isEmpty = (p.expenses||[]).length === 0 && _histAdd !== pid;
         const isOpen  = isCurrent || (_histEdit && _histEdit.pid === pid) || _histAdd === pid;
-
         return `
           <details style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:16px;margin-bottom:10px;" ${isOpen?'open':''}>
             <summary style="display:flex;justify-content:space-between;align-items:center;outline:none;cursor:pointer;">
@@ -877,9 +837,12 @@ function renderHistory() {
                 <div style="font-size:14px;font-weight:500">${p.startDate}${isCurrent ? ' <span class="badge g" style="margin-left:4px">Current</span>' : ''}</div>
                 <div style="font-size:11px;color:var(--muted);font-family:var(--font-mono);margin-top:2px">${(p.expenses||[]).length} expenses · ${fmt(inc)} income</div>
               </div>
-              <div style="text-align:right">
-                <div style="font-size:15px;font-weight:500;font-family:var(--font-mono);color:${sv<0?'var(--red)':'var(--green)'}">${sv<0?'−':''}${fmt(sv)}</div>
-                <span class="badge ${rt<0?'r':'g'}">${rt}% saved</span>
+              <div style="display:flex;align-items:center;gap:8px">
+                <div style="text-align:right">
+                  <div style="font-size:15px;font-weight:500;font-family:var(--font-mono);color:${sv<0?'var(--red)':'var(--green)'}">${sv<0?'−':''}${fmt(sv)}</div>
+                  <span class="badge ${rt<0?'r':'g'}">${rt}% saved</span>
+                </div>
+                <span class="summary-chevron">▾</span>
               </div>
             </summary>
             <div class="hist-exps-list">
@@ -893,7 +856,6 @@ function renderHistory() {
             ${buildCatSummaryHtml(p)}
           </details>`;
       }).join('');
-
   return `
     <div class="page-header"><h1>History</h1></div>
     <div class="metrics">
@@ -904,11 +866,9 @@ function renderHistory() {
     </div>
     <div style="margin-top:20px">${rows}</div>`;
 }
-
 // ── HISTORY EDIT / ADD ACTIONS ────────────────────────────────────────────
 function startHistEdit(pid, ei) { _histAdd = null; _histEdit = {pid, ei}; render(); }
 function cancelHistEdit()        { _histEdit = null; render(); }
-
 function saveHistExp(pid, ei) {
   const period = getPeriodById(pid); if (!period) return;
   const name    = document.getElementById(`he-n-${pid}-${ei}`)?.value?.trim();
@@ -920,7 +880,6 @@ function saveHistExp(pid, ei) {
   period.expenses[ei] = {name, amount: amt, cat, date: isoToDisplay(dateISO), dateISO};
   _histEdit = null; recomputeCarryoverChain(); save(); render(); toast('Updated');
 }
-
 function delHistExp(pid, ei) {
   const period = getPeriodById(pid); if (!period) return;
   const name   = period.expenses[ei]?.name;
@@ -929,13 +888,11 @@ function delHistExp(pid, ei) {
   if (_histEdit && _histEdit.pid === pid && _histEdit.ei === ei) _histEdit = null;
   recomputeCarryoverChain(); save(); render(); toast(`Removed: ${name}`);
 }
-
 function startHistAdd(pid) {
   _histEdit = null; _histAdd = pid; render();
   setTimeout(() => document.getElementById(`ha-n-${pid}`)?.focus(), 60);
 }
 function cancelHistAdd() { _histAdd = null; render(); }
-
 function saveHistAdd(pid) {
   const period  = getPeriodById(pid); if (!period) return;
   const name    = document.getElementById(`ha-n-${pid}`)?.value?.trim();
@@ -947,11 +904,9 @@ function saveHistAdd(pid) {
   period.expenses.push({name, amount: amt, cat, date: isoToDisplay(dateISO), dateISO});
   _histAdd = null; recomputeCarryoverChain(); save(); render(); toast(`Added: ${name}`);
 }
-
 // ── SETTINGS ──────────────────────────────────────────────────────────────
 function renderSettings() {
   const s = S.settings;
-
   const catRows = Object.entries(s.cats).map(([k,c]) => `
     <div class="be-row">
       <input type="color" class="color-picker" value="${c.color}" onchange="updateCat('${k}','color',this.value)" />
@@ -959,7 +914,6 @@ function renderSettings() {
       <input type="number" class="input-num" value="${c.monthly||0}" placeholder="0" inputmode="decimal" min="0" step="1" onchange="updateCat('${k}','monthly',this.value)"/>
       <button class="del-btn" onclick="delCat('${k}')">×</button>
     </div>`).join('');
-
   const fixedRows = (s.fixedCosts || []).map((f, i) => {
     const isDate   = f.billingType === 'date';
     const dayField = isDate
@@ -983,7 +937,6 @@ function renderSettings() {
       </div>
     </div>`;
   }).join('');
-
   const quickAddRows = (s.quickAdds || []).map((q, i) => `
     <div class="quick-edit-row">
       <div class="qe-top">
@@ -1003,10 +956,8 @@ function renderSettings() {
         </select>
       </div>
     </div>`).join('');
-
   return `
     <div class="page-header"><h1>Settings</h1></div>
-
     <div class="card">
       <div class="card-label">Pay Period Schedule</div>
       <div style="font-size:12px;color:var(--muted);margin-bottom:12px">Periods auto-archive when a new payday arrives.</div>
@@ -1023,7 +974,6 @@ function renderSettings() {
         <input type="date" value="${s.lastPayday}" onchange="updateSetting('lastPayday', this.value)" />
       </div>
     </div>
-
     <div class="card">
       <div class="card-label">Tithe</div>
       <div class="income-big" style="margin-bottom:4px">
@@ -1032,21 +982,18 @@ function renderSettings() {
       </div>
       <div style="font-size:12px;color:var(--muted);margin-top:6px">Auto-deducted from each paycheck</div>
     </div>
-
     <div class="card">
       <div class="card-label">Quick Add Items</div>
       <div style="font-size:12px;color:var(--muted);margin-bottom:12px">Shortcuts in the Add tab. Choose Fixed $, % of Total Income, or % of Category Budget.</div>
       ${quickAddRows}
       <button class="add-btn" onclick="addQuick()">+ Add Quick Add</button>
     </div>
-
     <div class="card">
       <div class="card-label">Variable category budgets (monthly)</div>
       <div style="font-size:12px;color:var(--muted);margin-bottom:12px">Divided by pay frequency each period. Leftover carries forward.</div>
       ${catRows}
       <button class="add-btn" onclick="addCat()">+ Add Category</button>
     </div>
-
     <div class="card">
       <div class="card-label">Fixed costs</div>
       <div style="font-size:12px;color:var(--muted);margin-bottom:12px">
@@ -1056,7 +1003,6 @@ function renderSettings() {
       ${fixedRows}
       <button class="add-btn" onclick="addFixed()">+ Add Fixed Cost</button>
     </div>
-
     <div class="card">
       <div class="card-label">Data Management</div>
       <button class="btn btn-ghost" onclick="exportData()">Export Data (Backup)</button>
@@ -1065,12 +1011,10 @@ function renderSettings() {
         <input type="file" style="display:none" accept=".json" onchange="importData(event)">
       </label>
     </div>
-
     <div class="card">
       <div class="card-label" style="color:var(--red)">Danger zone</div>
       <button class="btn btn-danger" onclick="resetAll()">Reset all data</button>
     </div>
-
     <div class="card">
       <div class="card-label">App</div>
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
@@ -1084,7 +1028,6 @@ function renderSettings() {
       <div style="font-size:11px;color:var(--muted);margin-top:8px;line-height:1.5">Clears cached files so the newest index.html is loaded. Your budget data is stored separately and will not be affected.</div>
     </div>`;
 }
-
 // ── SETTINGS ACTIONS ──────────────────────────────────────────────────────
 function updateSetting(key, val) {
   if (key === 'tithe') {
@@ -1138,14 +1081,12 @@ function delQuick(idx) {
   if (!confirm('Delete this quick shortcut?')) return;
   S.settings.quickAdds.splice(idx, 1); save(); render();
 }
-
 // ── PERIOD ACTIONS ────────────────────────────────────────────────────────
 function setIncome(v) {
   if (!S.currentPeriod) return;
   S.currentPeriod.income = parseFloat(v) || 0;
   save(); render();
 }
-
 function startPeriod() {
   if (!S.settings.lastPayday) {
     alert('Please set your Most Recent Payday in the Settings tab first!');
@@ -1163,7 +1104,6 @@ function startPeriod() {
   }
   save(); switchTab('home'); toast('New period started!');
 }
-
 function archivePeriod() {
   if (!confirm('Archive this period?\nLeftover category budgets carry forward.')) return;
   const carry = computeCarryover(S.currentPeriod);
@@ -1172,13 +1112,11 @@ function archivePeriod() {
   S.currentPeriod = newPeriodObj(most ? most.toISOString().slice(0,10) : todayISO(), carry);
   save(); render(); toast('Archived — carryover applied');
 }
-
 function delExp(idx) {
   const e = S.currentPeriod.expenses[idx];
   S.currentPeriod.expenses.splice(idx, 1);
   save(); render(); toast(`Removed: ${e.name}`);
 }
-
 function addExpense() {
   const name = document.getElementById('exp-name')?.value?.trim();
   const amt  = parseFloat(document.getElementById('exp-amt')?.value);
@@ -1196,7 +1134,6 @@ function addExpense() {
   document.getElementById('exp-amt').value  = '';
   switchTab('home');
 }
-
 function quickAdd(i) {
   const q = S.settings.quickAdds[i];
   if (!S.currentPeriod) {
@@ -1207,7 +1144,6 @@ function quickAdd(i) {
   S.currentPeriod.expenses.push({name: q.name, amount: calcQuickAmt(q), cat: q.cat, date: todayStr(), dateISO: todayISO()});
   save(); toast(`Added: ${q.name}`); switchTab('home');
 }
-
 // ── DATA MANAGEMENT ───────────────────────────────────────────────────────
 function exportData() {
   const blob = new Blob([JSON.stringify(S, null, 2)], {type: 'application/json'});
@@ -1240,27 +1176,21 @@ function resetAll() {
   };
   save(); render(); toast('All data cleared');
 }
-
 // ── UPDATE / CACHE CONTROL ────────────────────────────────────────────────
 async function checkForUpdates() {
   if (!confirm('Clear the app cache and reload?\n\nYour budget data will not be affected.')) return;
   try {
-    // Delete all service worker caches
     if ('caches' in window) {
       const keys = await caches.keys();
       await Promise.all(keys.map(k => caches.delete(k)));
     }
-    // Unregister all service workers so the new one installs clean
     if ('serviceWorker' in navigator) {
       const regs = await navigator.serviceWorker.getRegistrations();
       await Promise.all(regs.map(r => r.unregister()));
     }
   } catch(e) {}
-  // Hard reload bypassing browser cache
   window.location.reload(true);
 }
-
-// Show current SW cache version in the UI if available
 async function refreshUpdateStatus() {
   if (!('serviceWorker' in navigator)) return;
   try {
@@ -1272,6 +1202,82 @@ async function refreshUpdateStatus() {
   } catch(e) {}
 }
 
+// ── DETAILS OPEN/CLOSE ANIMATION ──────────────────────────────────────────
+// Native <details> snaps open and closed with no transition. We intercept
+// the click on <summary>, measure the element's height in both states, and
+// drive a smooth height transition using JS — adding the .is-animating class
+// during the animation so we can lock overflow:hidden.
+const DETAILS_DURATION_MS = 280;
+const DETAILS_EASING = 'cubic-bezier(0.16, 1, 0.3, 1)';
+
+function getClosedHeight(details) {
+  const summary = details.querySelector(':scope > summary');
+  if (!summary) return 0;
+  const styles = window.getComputedStyle(details);
+  const padTop = parseFloat(styles.paddingTop)    || 0;
+  const padBot = parseFloat(styles.paddingBottom) || 0;
+  const borderTop = parseFloat(styles.borderTopWidth)    || 0;
+  const borderBot = parseFloat(styles.borderBottomWidth) || 0;
+  return summary.offsetHeight + padTop + padBot + borderTop + borderBot;
+}
+
+function animateDetails(details, shouldOpen) {
+  if (details._animating) return;
+  // Respect user's reduced-motion preference
+  if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    details.open = shouldOpen;
+    return;
+  }
+  details._animating = true;
+  details.classList.add('is-animating');
+
+  if (shouldOpen) {
+    // OPEN: measure target height by briefly opening in-place.
+    const startH = getClosedHeight(details);
+    details.open = true;
+    const endH = details.offsetHeight; // full open height
+    details.style.height = startH + 'px';
+    // Force layout, then transition
+    void details.offsetHeight;
+    details.style.transition = `height ${DETAILS_DURATION_MS}ms ${DETAILS_EASING}`;
+    requestAnimationFrame(() => { details.style.height = endH + 'px'; });
+  } else {
+    // CLOSE: lock current open height, then collapse to closed height.
+    const startH = details.offsetHeight;
+    const endH   = getClosedHeight(details);
+    details.style.height = startH + 'px';
+    void details.offsetHeight;
+    details.style.transition = `height ${DETAILS_DURATION_MS}ms ${DETAILS_EASING}`;
+    requestAnimationFrame(() => { details.style.height = endH + 'px'; });
+  }
+
+  const finish = (e) => {
+    if (e && e.propertyName !== 'height') return;
+    details.removeEventListener('transitionend', finish);
+    clearTimeout(details._animTimer);
+    details.style.transition = '';
+    details.style.height     = '';
+    details.classList.remove('is-animating');
+    details._animating = false;
+    if (!shouldOpen) details.open = false;
+  };
+  details.addEventListener('transitionend', finish);
+  // Safety fallback in case transitionend doesn't fire
+  details._animTimer = setTimeout(() => finish({propertyName:'height'}), DETAILS_DURATION_MS + 80);
+}
+
+// Event delegation: intercept summary clicks anywhere in the screen
+document.getElementById('screen').addEventListener('click', (e) => {
+  // Don't hijack clicks on interactive children that bubbled up
+  if (e.target.closest('button, input, select, label, a, textarea')) return;
+  const summary = e.target.closest('summary');
+  if (!summary) return;
+  const details = summary.parentElement;
+  if (!details || details.tagName !== 'DETAILS') return;
+  e.preventDefault();
+  animateDetails(details, !details.open);
+});
+
 // ── BOOT ──────────────────────────────────────────────────────────────────
 load();
 render();
@@ -1280,18 +1286,15 @@ refreshUpdateStatus();
 <script>
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('sw.js').then(reg => {
-      // Check for a waiting/updated worker and prompt the user
       reg.addEventListener('updatefound', () => {
         const newWorker = reg.installing;
         newWorker.addEventListener('statechange', () => {
           if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-            // New version is ready; nudge the user
             toast('Update ready — tap Settings → Clear cache & reload');
           }
         });
       });
     });
-    // When a new SW takes over, reload so the fresh files are used
     let refreshing = false;
     navigator.serviceWorker.addEventListener('controllerchange', () => {
       if (!refreshing) { refreshing = true; window.location.reload(); }
