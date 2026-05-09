@@ -237,6 +237,9 @@ details[open] summary ~ * { animation: slideDown .25s cubic-bezier(0.16, 1, 0.3,
 <div id="toast"></div>
 
 <script>
+// ── VERSION ───────────────────────────────────────────────────────────────
+const APP_VERSION = '1.4.0';
+
 // ── DEFAULTS ──────────────────────────────────────────────────────────────
 const DEFAULT_CATS = {
   groceries: {label:'Groceries',     color:'#00c97a', monthly:200},
@@ -1040,7 +1043,19 @@ function renderSettings() {
       <div class="card-label" style="color:var(--red)">Danger zone</div>
       <button class="btn btn-danger" onclick="resetAll()">Reset all data</button>
     </div>
-    <div style="text-align:center;font-size:11px;color:var(--muted);margin-top:16px;margin-bottom:8px;font-family:var(--font-mono)">Budget · saved locally on this device</div>`;
+
+    <div class="card">
+      <div class="card-label">App</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <div>
+          <div style="font-size:14px;font-weight:500">Budget</div>
+          <div style="font-size:11px;color:var(--muted);font-family:var(--font-mono);margin-top:2px">v${APP_VERSION} · local storage</div>
+        </div>
+        <div id="update-status" style="font-size:11px;color:var(--muted);font-family:var(--font-mono)"></div>
+      </div>
+      <button class="btn btn-ghost" onclick="checkForUpdates()" style="margin-top:0">↻ Clear cache &amp; reload latest version</button>
+      <div style="font-size:11px;color:var(--muted);margin-top:8px;line-height:1.5">Clears cached files so the newest index.html is loaded. Your budget data is stored separately and will not be affected.</div>
+    </div>`;
 }
 
 // ── SETTINGS ACTIONS ──────────────────────────────────────────────────────
@@ -1199,12 +1214,62 @@ function resetAll() {
   save(); render(); toast('All data cleared');
 }
 
+// ── UPDATE / CACHE CONTROL ────────────────────────────────────────────────
+async function checkForUpdates() {
+  if (!confirm('Clear the app cache and reload?\n\nYour budget data will not be affected.')) return;
+  try {
+    // Delete all service worker caches
+    if ('caches' in window) {
+      const keys = await caches.keys();
+      await Promise.all(keys.map(k => caches.delete(k)));
+    }
+    // Unregister all service workers so the new one installs clean
+    if ('serviceWorker' in navigator) {
+      const regs = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(regs.map(r => r.unregister()));
+    }
+  } catch(e) {}
+  // Hard reload bypassing browser cache
+  window.location.reload(true);
+}
+
+// Show current SW cache version in the UI if available
+async function refreshUpdateStatus() {
+  if (!('serviceWorker' in navigator)) return;
+  try {
+    const reg = await navigator.serviceWorker.getRegistration();
+    if (reg?.active) {
+      const el = document.getElementById('update-status');
+      if (el) el.textContent = 'SW active';
+    }
+  } catch(e) {}
+}
+
 // ── BOOT ──────────────────────────────────────────────────────────────────
 load();
 render();
+refreshUpdateStatus();
 </script>
 <script>
-  if ('serviceWorker' in navigator) { navigator.serviceWorker.register('sw.js'); }
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js').then(reg => {
+      // Check for a waiting/updated worker and prompt the user
+      reg.addEventListener('updatefound', () => {
+        const newWorker = reg.installing;
+        newWorker.addEventListener('statechange', () => {
+          if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+            // New version is ready; nudge the user
+            toast('Update ready — tap Settings → Clear cache & reload');
+          }
+        });
+      });
+    });
+    // When a new SW takes over, reload so the fresh files are used
+    let refreshing = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (!refreshing) { refreshing = true; window.location.reload(); }
+    });
+  }
 </script>
 </body>
 </html>
