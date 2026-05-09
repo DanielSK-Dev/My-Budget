@@ -300,6 +300,8 @@ function load() {
     }
   } catch(e) {}
   checkAutoRollover();
+  // Re-sync carryovers in case past expenses were edited while the app was closed
+  recomputeCarryoverChain();
 }
 function save() { try { localStorage.setItem(SK, JSON.stringify(S)); } catch(e) {} }
 
@@ -434,6 +436,7 @@ function checkAutoRollover() {
     };
     save();
     _autoRollMsg = 'New pay period started — budget carried over';
+    recomputeCarryoverChain();
   }
 }
 
@@ -470,6 +473,24 @@ function computeCarryover(period) {
     out[k] = parseFloat(Math.max(0, base + carry - spent).toFixed(2));
   });
   return out;
+}
+
+/**
+ * Walk every period in history order and recompute each period's incoming
+ * carryover from the output of the one before it, then update currentPeriod.
+ * Call this any time past expenses are added, edited, or deleted.
+ */
+function recomputeCarryoverChain() {
+  if (!S.history.length && !S.currentPeriod) return;
+  // The very first archived period keeps its original incoming carryover (usually {}).
+  // Each subsequent period's *incoming* carryover = output of the previous period.
+  for (let i = 1; i < S.history.length; i++) {
+    S.history[i].carryover = computeCarryover(S.history[i - 1]);
+  }
+  // Current period receives the output of the last archived period.
+  if (S.currentPeriod && S.history.length > 0) {
+    S.currentPeriod.carryover = computeCarryover(S.history[S.history.length - 1]);
+  }
 }
 function calcQuickAmt(q) {
   const inc = parseFloat(S.currentPeriod?.income || 0);
@@ -867,7 +888,7 @@ function saveHistExp(pid, ei) {
   if (!name)           { toast('Enter a description'); return; }
   if (isNaN(amt)||amt<=0) { toast('Enter a valid amount'); return; }
   period.expenses[ei] = {name, amount: amt, cat, date: isoToDisplay(dateISO), dateISO};
-  _histEdit = null; save(); render(); toast('Updated');
+  _histEdit = null; recomputeCarryoverChain(); save(); render(); toast('Updated');
 }
 
 function delHistExp(pid, ei) {
@@ -876,7 +897,7 @@ function delHistExp(pid, ei) {
   if (!confirm(`Delete "${name}"?`)) return;
   period.expenses.splice(ei, 1);
   if (_histEdit && _histEdit.pid === pid && _histEdit.ei === ei) _histEdit = null;
-  save(); render(); toast(`Removed: ${name}`);
+  recomputeCarryoverChain(); save(); render(); toast(`Removed: ${name}`);
 }
 
 function startHistAdd(pid) {
@@ -894,7 +915,7 @@ function saveHistAdd(pid) {
   if (!name)           { toast('Enter a description'); return; }
   if (isNaN(amt)||amt<=0) { toast('Enter a valid amount'); return; }
   period.expenses.push({name, amount: amt, cat, date: isoToDisplay(dateISO), dateISO});
-  _histAdd = null; save(); render(); toast(`Added: ${name}`);
+  _histAdd = null; recomputeCarryoverChain(); save(); render(); toast(`Added: ${name}`);
 }
 
 // ── SETTINGS ──────────────────────────────────────────────────────────────
