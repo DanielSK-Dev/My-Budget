@@ -22,7 +22,7 @@
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--font);overflow:hidden;overscroll-behavior-y:none;position:fixed;width:100%;top:0;left:0}
 #app{display:flex;flex-direction:column;height:100vh;height:100dvh;width:100%}
-#screen{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;padding:20px 16px calc(100px + var(--safe-bottom));overscroll-behavior-y:contain}
+#screen{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;padding:20px 16px calc(86px + var(--safe-bottom));overscroll-behavior-y:contain}
 #screen::-webkit-scrollbar{display:none}
 #nav{position:fixed;left:0;right:0;bottom:0;display:flex;background:var(--surface);border-top:1px solid var(--border);padding-bottom:var(--safe-bottom);z-index:50}
 .nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 2px 8px;border:none;background:none;color:var(--muted);cursor:pointer;font-size:9px;font-family:var(--font);letter-spacing:.04em;transition:color .15s}
@@ -121,7 +121,14 @@ select option{background:#1e1e1e}
 .fc-edit-row input.fc-name{flex:1;font-family:var(--font)}
 .fc-edit-row input.fc-amt{width:76px;text-align:right;font-family:var(--font-mono)}
 .fc-edit-row input.fc-day{width:54px;text-align:center;font-family:var(--font-mono)}
-.fc-edit-row select.fc-type{flex:1}
+.fc-edit-row select.fc-type{flex:1;min-width:0;text-overflow:ellipsis}
+.fc-edit-day{display:flex;align-items:center;gap:8px;padding-left:36px;margin-top:8px}
+.fc-edit-day input.fc-day{width:64px;text-align:center;font-family:var(--font-mono);font-size:13px;padding:7px 8px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text)}
+/* Small / secondary button — used for infrequent utility actions */
+.btn-sm{display:inline-flex;align-items:center;justify-content:center;gap:6px;width:auto;padding:8px 14px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--muted);font-family:var(--font);font-size:12px;cursor:pointer;transition:opacity .15s,color .15s,border-color .15s,background .15s;text-align:center;line-height:1.2}
+.btn-sm:active{opacity:.65}
+.btn-sm.danger{color:var(--red);border-color:var(--red)}
+.btn-sm.danger:active{background:var(--red-dim)}
 /* Quick add edit rows */
 .quick-edit-row { display:flex; flex-direction:column; gap:8px; padding:14px 0; border-bottom:1px solid var(--border); }
 .quick-edit-row:last-child { border-bottom:none; }
@@ -262,6 +269,7 @@ let S = {
   history: [],
   settings: {
     tithe: 10,
+    titheAutoPaid: false,           // when true, new periods start with giving marked paid
     payFreq: 'biweekly',
     lastPayday: '',
     cats: {...DEFAULT_CATS},
@@ -281,6 +289,7 @@ function load() {
       if (!S.settings.cats)    S.settings.cats    = {...DEFAULT_CATS};
       if (!S.settings.payFreq) S.settings.payFreq = 'biweekly';
       if (typeof S.settings.lastPayday === 'undefined') S.settings.lastPayday = '';
+      if (typeof S.settings.titheAutoPaid === 'undefined') S.settings.titheAutoPaid = false;
     }
     if (S.currentPeriod && typeof S.currentPeriod.tithePaid === 'undefined')
       S.currentPeriod.tithePaid = false;
@@ -423,7 +432,8 @@ function checkAutoRollover() {
     S.currentPeriod = {
       startDate:    mostRecent.toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'}),
       startDateISO: isoDate,
-      income: 0, expenses: [], carryover: carry, tithePaid: false,
+      income: 0, expenses: [], carryover: carry,
+      tithePaid: !!S.settings.titheAutoPaid,
     };
     save();
     _autoRollMsg = 'New pay period started — budget carried over';
@@ -502,7 +512,9 @@ function newPeriodObj(isoDate, carry) {
   return {
     startDate:    new Date(isoDate + 'T00:00:00').toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'}),
     startDateISO: isoDate,
-    income: 0, expenses: [], carryover: carry || {}, tithePaid: false,
+    income: 0, expenses: [], carryover: carry || {},
+    // Auto setting decides whether the new period starts with giving already paid
+    tithePaid: !!S.settings.titheAutoPaid,
   };
 }
 // ── ROUTING ───────────────────────────────────────────────────────────────
@@ -593,7 +605,7 @@ function renderHome() {
       </div>
     </div>
     <div class="metrics">
-      <div class="metric"><div class="lbl">Fixed + tithe</div><div class="val">${fmt(fixed+tithe)}</div></div>
+      <div class="metric"><div class="lbl">Fixed + giving</div><div class="val">${fmt(fixed+tithe)}</div></div>
       <div class="metric"><div class="lbl">Variable spent</div><div class="val">${fmt(varSpent)}</div></div>
       <div class="metric"><div class="lbl">Investable</div><div class="val ${remaining<0?'r':'g'}">${remaining<0?'−':''}${fmt(remaining)}</div></div>
       <div class="metric"><div class="lbl">Savings rate</div><div class="val ${rate!==null&&rate<0?'r':'g'}">${rate!==null ? rate+'%' : '—'}</div></div>
@@ -603,7 +615,7 @@ function renderHome() {
       <div class="sum-row"><span class="sum-label">Gross income</span><span class="sum-val">${fmt(income)}</span></div>
       <div class="sum-row"><span class="sum-label">Fixed costs</span><span class="sum-val r">−${fmt(fixed)}</span></div>
       <div class="sum-row">
-        <span class="sum-label" style="display:flex;align-items:center">Tithe (${S.settings.tithe}%) ${titheBtn}</span>
+        <span class="sum-label" style="display:flex;align-items:center">Giving (${S.settings.tithe}%) ${titheBtn}</span>
         <span class="sum-val r">−${fmt(tithe)}</span>
       </div>
       <div class="sum-row"><span class="sum-label">Variable expenses</span><span class="sum-val a">−${fmt(varSpent)}</span></div>
@@ -899,6 +911,8 @@ function saveHistAdd(pid) {
 // ── SETTINGS ──────────────────────────────────────────────────────────────
 function renderSettings() {
   const s = S.settings;
+
+  // ─ Category-budget rows ────────────────────────────────────────────────
   const catRows = Object.entries(s.cats).map(([k,c]) => `
     <div class="be-row">
       <input type="color" class="color-picker" value="${c.color}" onchange="updateCat('${k}','color',this.value)" />
@@ -906,29 +920,34 @@ function renderSettings() {
       <input type="number" class="input-num" value="${c.monthly||0}" placeholder="0" inputmode="decimal" min="0" step="1" onchange="updateCat('${k}','monthly',this.value)"/>
       <button class="del-btn" onclick="delCat('${k}')">×</button>
     </div>`).join('');
+
+  // ─ Monthly subscription rows (formerly Fixed costs) ───────────────────
+  // The day-of-month input now lives on its own row when needed, so the
+  // "Specific day" select option always has full width to display.
   const fixedRows = (s.fixedCosts || []).map((f, i) => {
-    const isDate   = f.billingType === 'date';
-    const dayField = isDate
-      ? `<span style="font-size:11px;color:var(--muted);flex-shrink:0">Day</span>
-         <input type="number" class="fc-day" value="${f.billingDay||1}" min="1" max="31" inputmode="numeric" onchange="updateFixed(${i},'billingDay',this.value)" />`
-      : '';
+    const isDate = f.billingType === 'date';
     return `<div class="fc-edit-row">
       <div class="fc-edit-top">
         <input type="color" class="color-picker" value="${f.color||'#888888'}" onchange="updateFixed(${i},'color',this.value)" />
-        <input type="text" class="fc-name" value="${f.name}" placeholder="Fixed cost" onchange="updateFixed(${i},'name',this.value)" />
+        <input type="text" class="fc-name" value="${f.name}" placeholder="Subscription name" onchange="updateFixed(${i},'name',this.value)" />
         <button class="del-btn" onclick="delFixed(${i})">×</button>
       </div>
       <div class="fc-edit-bot">
         <span style="font-size:11px;color:var(--muted);flex-shrink:0">$/mo</span>
         <input type="number" class="fc-amt" value="${f.monthly||0}" placeholder="0" inputmode="decimal" min="0" step="1" onchange="updateFixed(${i},'monthly',this.value)" />
         <select class="fc-type" onchange="updateFixed(${i},'billingType',this.value);render()">
-          <option value="split" ${!isDate?'selected':''}>÷ each period</option>
-          <option value="date"  ${isDate ?'selected':''}>On specific day</option>
+          <option value="split" ${!isDate?'selected':''}>Each period</option>
+          <option value="date"  ${isDate ?'selected':''}>Specific day</option>
         </select>
-        ${dayField}
       </div>
+      ${isDate ? `<div class="fc-edit-day">
+        <span style="font-size:11px;color:var(--muted);flex-shrink:0">Day of month</span>
+        <input type="number" class="fc-day" value="${f.billingDay||1}" min="1" max="31" inputmode="numeric" onchange="updateFixed(${i},'billingDay',this.value)" />
+      </div>` : ''}
     </div>`;
   }).join('');
+
+  // ─ Quick-add rows ──────────────────────────────────────────────────────
   const quickAddRows = (s.quickAdds || []).map((q, i) => `
     <div class="quick-edit-row">
       <div class="qe-top">
@@ -948,53 +967,77 @@ function renderSettings() {
         </select>
       </div>
     </div>`).join('');
+
+  // ─ Page layout: budgeting first, system controls collapsed at bottom ──
   return `
     <div class="page-header"><h1>Settings</h1></div>
+
+    <!-- ── 1. Category budgets (PRIMARY) ── -->
     <div class="card">
-      <div class="card-label">Pay Period Schedule</div>
-      <div style="font-size:12px;color:var(--muted);margin-bottom:12px">Periods auto-archive when a new payday arrives.</div>
-      <div class="field">
-        <label>Pay Frequency</label>
-        <select onchange="updateSetting('payFreq', this.value)">
-          <option value="weekly"   ${s.payFreq==='weekly'?'selected':''}>Weekly</option>
-          <option value="biweekly" ${s.payFreq==='biweekly'?'selected':''}>Bi-weekly (Every 2 weeks)</option>
-          <option value="monthly"  ${s.payFreq==='monthly'?'selected':''}>Monthly</option>
-        </select>
-      </div>
-      <div class="field">
-        <label>Most Recent Payday (Reference Date)</label>
-        <input type="date" value="${s.lastPayday}" onchange="updateSetting('lastPayday', this.value)" />
-      </div>
+      <div class="card-label">Category Budgets</div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:12px">Monthly amounts per category. Divided by pay frequency each period. Leftover carries forward.</div>
+      ${catRows}
+      <button class="add-btn" onclick="addCat()">+ Add Category</button>
     </div>
+
+    <!-- ── 2. Monthly subscriptions (formerly Fixed costs) ── -->
     <div class="card">
-      <div class="card-label">Tithe</div>
-      <div class="income-big" style="margin-bottom:4px">
-        <input type="number" value="${s.tithe}" placeholder="10" inputmode="decimal" min="0" max="100" style="font-size:32px" onchange="updateSetting('tithe', this.value)"/>
-        <span style="font-size:24px;color:var(--muted);font-family:var(--font-mono);margin-left:4px">%</span>
+      <div class="card-label">Monthly Subscriptions</div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:12px">
+        <b style="color:var(--text)">Each period</b> — splits monthly amount across pay periods.<br>
+        <b style="color:var(--text)">Specific day</b> — full amount only in the period containing that calendar day.
       </div>
-      <div style="font-size:12px;color:var(--muted);margin-top:6px">Auto-deducted from each paycheck</div>
+      ${fixedRows}
+      <button class="add-btn" onclick="addFixed()">+ Add Subscription</button>
     </div>
+
+    <!-- ── 3. Quick adds ── -->
     <div class="card">
       <div class="card-label">Quick Add Items</div>
       <div style="font-size:12px;color:var(--muted);margin-bottom:12px">Shortcuts in the Add tab. Choose Fixed $, % of Total Income, or % of Category Budget.</div>
       ${quickAddRows}
       <button class="add-btn" onclick="addQuick()">+ Add Quick Add</button>
     </div>
+
+    <!-- ── 4. System / Utility controls (BOTTOM) ── -->
+    <div class="sec-div" style="margin-top:24px">System &amp; utilities</div>
+
     <div class="card">
-      <div class="card-label">Variable category budgets (monthly)</div>
-      <div style="font-size:12px;color:var(--muted);margin-bottom:12px">Divided by pay frequency each period. Leftover carries forward.</div>
-      ${catRows}
-      <button class="add-btn" onclick="addCat()">+ Add Category</button>
-    </div>
-    <div class="card">
-      <div class="card-label">Fixed costs</div>
-      <div style="font-size:12px;color:var(--muted);margin-bottom:12px">
-        <b style="color:var(--text)">÷ each period</b> — splits monthly amount across pay periods.<br>
-        <b style="color:var(--text)">On specific day</b> — deducts the full amount only in the period that contains that calendar day.
+      <div class="card-label">Pay period schedule</div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:12px">Periods auto-archive when a new payday arrives.</div>
+      <div class="field">
+        <label>Pay frequency</label>
+        <select onchange="updateSetting('payFreq', this.value)">
+          <option value="weekly"   ${s.payFreq==='weekly'?'selected':''}>Weekly</option>
+          <option value="biweekly" ${s.payFreq==='biweekly'?'selected':''}>Bi-weekly (every 2 weeks)</option>
+          <option value="monthly"  ${s.payFreq==='monthly'?'selected':''}>Monthly</option>
+        </select>
       </div>
-      ${fixedRows}
-      <button class="add-btn" onclick="addFixed()">+ Add Fixed Cost</button>
+      <div class="field">
+        <label>Most recent payday (reference date)</label>
+        <input type="date" value="${s.lastPayday}" onchange="updateSetting('lastPayday', this.value)" />
+      </div>
     </div>
+
+    <div class="card">
+      <div class="card-label">Giving &amp; Contributions</div>
+      <div class="income-big" style="margin-bottom:4px">
+        <input type="number" value="${s.tithe}" placeholder="10" inputmode="decimal" min="0" max="100" style="font-size:32px" onchange="updateSetting('tithe', this.value)"/>
+        <span style="font-size:24px;color:var(--muted);font-family:var(--font-mono);margin-left:4px">%</span>
+      </div>
+      <div style="font-size:12px;color:var(--muted);margin:6px 0 14px">Percentage of each paycheck set aside for charitable giving, tithing, or contributions.</div>
+      <div class="field">
+        <label>Payment tracking</label>
+        <select onchange="updateSetting('titheAutoPaid', this.value === 'auto')">
+          <option value="manual" ${!s.titheAutoPaid?'selected':''}>Manual — mark paid each period</option>
+          <option value="auto"   ${s.titheAutoPaid ?'selected':''}>Automatic — always marked paid</option>
+        </select>
+        <div style="font-size:11px;color:var(--muted);margin-top:6px;line-height:1.4">${s.titheAutoPaid
+          ? 'New periods will start with giving already marked as paid.'
+          : 'You\'ll tap "Mark paid" on the Period tab when you give each period.'}</div>
+      </div>
+    </div>
+
     <div class="card">
       <div class="card-label">Data Management</div>
       <button class="btn btn-ghost" onclick="exportData()">Export Data (Backup)</button>
@@ -1003,21 +1046,25 @@ function renderSettings() {
         <input type="file" style="display:none" accept=".json" onchange="importData(event)">
       </label>
     </div>
-    <div class="card">
-      <div class="card-label" style="color:var(--red)">Danger zone</div>
-      <button class="btn btn-danger" onclick="resetAll()">Reset all data</button>
-    </div>
+
     <div class="card">
       <div class="card-label">App</div>
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
         <div>
           <div style="font-size:14px;font-weight:500">Budget</div>
           <div style="font-size:11px;color:var(--muted);font-family:var(--font-mono);margin-top:2px">v${APP_VERSION} · local storage</div>
         </div>
         <div id="update-status" style="font-size:11px;color:var(--muted);font-family:var(--font-mono)"></div>
       </div>
-      <button class="btn btn-ghost" onclick="checkForUpdates()" style="margin-top:0">↻ Clear cache &amp; reload latest version</button>
-      <div style="font-size:11px;color:var(--muted);margin-top:8px;line-height:1.5">Clears cached files so the newest index.html is loaded. Your budget data is stored separately and will not be affected.</div>
+      <button class="btn-sm" onclick="checkForUpdates()">↻ Clear cache &amp; reload</button>
+      <div style="font-size:11px;color:var(--muted);margin-top:10px;line-height:1.5">Clears cached files so the newest index.html is loaded. Your budget data is stored separately and will not be affected.</div>
+    </div>
+
+    <!-- Danger zone — very bottom, below Clear Cache & Reload -->
+    <div class="card" style="margin-bottom:0">
+      <div class="card-label" style="color:var(--red)">Danger zone</div>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:10px;line-height:1.5">Permanently deletes all budgets, subscriptions, history, and settings. This cannot be undone.</div>
+      <button class="btn-sm danger" onclick="resetAll()">Reset all data</button>
     </div>`;
 }
 // ── SETTINGS ACTIONS ──────────────────────────────────────────────────────
@@ -1052,7 +1099,7 @@ function updateFixed(idx, field, val) {
   save();
 }
 function addFixed() {
-  S.settings.fixedCosts.push({name: 'New Cost', monthly: 0, color: '#ffb347', billingType: 'split', billingDay: 1});
+  S.settings.fixedCosts.push({name: 'New Subscription', monthly: 0, color: '#ffb347', billingType: 'split', billingDay: 1});
   save(); render();
 }
 function delFixed(idx) {
@@ -1163,7 +1210,7 @@ function resetAll() {
   if (!confirm('Delete ALL data permanently?')) return;
   S = {
     currentPeriod: null, history: [],
-    settings: {tithe: 10, payFreq: 'biweekly', lastPayday: '',
+    settings: {tithe: 10, titheAutoPaid: false, payFreq: 'biweekly', lastPayday: '',
       cats: {...DEFAULT_CATS}, fixedCosts: [...DEFAULT_FIXED], quickAdds: [...DEFAULT_QUICK]}
   };
   save(); render(); toast('All data cleared');
