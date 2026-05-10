@@ -22,7 +22,7 @@
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--font);overflow:hidden;overscroll-behavior-y:none;position:fixed;width:100%;top:0;left:0}
 #app{display:flex;flex-direction:column;height:100vh;height:100dvh;width:100%}
-#screen{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;padding:20px 16px calc(86px + var(--safe-bottom));overscroll-behavior-y:contain}
+#screen{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;padding:20px 16px calc(94px + var(--safe-bottom));overscroll-behavior-y:contain}
 #screen::-webkit-scrollbar{display:none}
 #nav{position:fixed;left:0;right:0;bottom:0;display:flex;background:var(--surface);border-top:1px solid var(--border);padding-bottom:var(--safe-bottom);z-index:50}
 .nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 2px 8px;border:none;background:none;color:var(--muted);cursor:pointer;font-size:9px;font-family:var(--font);letter-spacing:.04em;transition:color .15s}
@@ -63,6 +63,29 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 .fixed-tag{font-size:9px;font-family:var(--font-mono);letter-spacing:.04em;padding:2px 5px;border-radius:4px;margin-left:5px;vertical-align:middle}
 .fixed-tag.due{background:var(--green-dim);color:var(--green)}
 .fixed-tag.skip{background:var(--surface2);color:var(--muted)}
+.fixed-tag.paid{background:var(--green-dim);color:var(--green)}
+.fixed-tag.pending{background:var(--amber-dim);color:var(--amber)}
+.fixed-tag.upcoming{background:var(--surface2);color:var(--muted)}
+/* Custom checkbox for fixed cost paid status */
+.fixed-check{appearance:none;-webkit-appearance:none;width:18px;height:18px;border:1.5px solid var(--border);border-radius:5px;background:transparent;cursor:pointer;flex-shrink:0;position:relative;transition:background .15s,border-color .15s;margin:0;padding:0}
+.fixed-check:checked{background:var(--green);border-color:var(--green)}
+.fixed-check:checked::after{content:'';position:absolute;left:5px;top:1px;width:5px;height:10px;border:solid #000;border-width:0 2px 2px 0;transform:rotate(45deg)}
+.fixed-row.paid .fixed-name{color:var(--muted)}
+.fixed-row.paid .fixed-amt{color:var(--muted)!important;text-decoration:line-through}
+.fixed-row.paid .pip{opacity:.4}
+/* Breakdown layout settings rows */
+.bd-row{display:flex;align-items:center;gap:6px;padding:9px 0;border-bottom:1px solid var(--border)}
+.bd-row:last-child{border-bottom:none}
+.bd-row.dimmed{opacity:.65}
+.bd-name{flex:1;font-size:13px;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bd-btn{width:30px;height:30px;padding:0;background:var(--surface2);border:1px solid var(--border);border-radius:7px;color:var(--muted);font-size:14px;cursor:pointer;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center}
+.bd-btn:active{background:var(--border);color:var(--text)}
+.bd-btn:disabled{opacity:.25;cursor:default}
+.bd-btn.bd-rm{color:var(--muted)}
+.bd-btn.bd-rm:active{color:var(--red);border-color:var(--red)}
+.bd-add-btn{padding:6px 10px;background:transparent;border:1px solid var(--border);border-radius:7px;color:var(--green);font-size:11px;cursor:pointer;font-family:var(--font-mono);flex-shrink:0;letter-spacing:.04em}
+.bd-add-btn:active{background:var(--green-dim)}
+.bd-section-label{font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);font-family:var(--font-mono);margin:14px 0 6px}
 .sum-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px}
 .sum-row:last-child{border-bottom:none}
 .sum-label{color:var(--muted)}
@@ -246,7 +269,7 @@ details[open] > summary .summary-chevron {
 <div id="toast"></div>
 <script>
 // ── VERSION ───────────────────────────────────────────────────────────────
-const APP_VERSION = '1.5.2';
+const APP_VERSION = '1.6.0';
 // ── DEFAULTS ──────────────────────────────────────────────────────────────
 const DEFAULT_CATS = {
   groceries: {label:'Groceries',     color:'#00c97a', monthly:200},
@@ -255,13 +278,22 @@ const DEFAULT_CATS = {
   other:     {label:'Other',         color:'#555555', monthly:50},
 };
 const DEFAULT_FIXED = [
-  {name:'Gym Membership', monthly:40.00, color:'#ffb347', billingType:'split'},
-  {name:'Streaming Sub',  monthly:15.00, color:'#9f77dd', billingType:'split'},
+  {id:'fc_default_gym',   name:'Gym Membership', monthly:40.00, color:'#ffb347', billingType:'split'},
+  {id:'fc_default_strm',  name:'Streaming Sub',  monthly:15.00, color:'#9f77dd', billingType:'split'},
 ];
 const DEFAULT_QUICK = [
   {name:'Gas fillup', amount:40, amtType:'fixed', cat:'trans',      color:'#4d9fff'},
   {name:'Groceries',  amount:50, amtType:'fixed', cat:'groceries',  color:'#00c97a'},
 ];
+// Built-in breakdown stats (also extended at runtime with sub:<fixedId> entries)
+const DEFAULT_BREAKDOWN = ['income', 'fixed_total', 'giving', 'variable', 'invest'];
+const BUILTIN_BREAKDOWN_LABELS = {
+  income:      'Gross income',
+  fixed_total: 'Fixed costs (total)',
+  giving:      'Giving / tithe',
+  variable:    'Variable expenses',
+  invest:      'To invest',
+};
 // ── STATE ─────────────────────────────────────────────────────────────────
 const SK = 'budget_v9';
 let S = {
@@ -269,12 +301,13 @@ let S = {
   history: [],
   settings: {
     tithe: 10,
-    titheAutoPaid: false,           // when true, new periods start with giving marked paid
+    titheAutoPaid: false,            // when true, new periods start with giving marked paid
     payFreq: 'biweekly',
     lastPayday: '',
     cats: {...DEFAULT_CATS},
     fixedCosts: [...DEFAULT_FIXED],
     quickAdds:  [...DEFAULT_QUICK],
+    breakdown:  [...DEFAULT_BREAKDOWN],  // ordered list of stat IDs shown on Period tab
   }
 };
 let _autoRollMsg = null;  // set by checkAutoRollover, shown after render
@@ -298,7 +331,10 @@ function load() {
     S.settings.fixedCosts.forEach(f => {
       if (!f.billingType) f.billingType = 'split';
       if (typeof f.billingDay === 'undefined') f.billingDay = 1;
+      if (!f.id) f.id = genId('fc');   // backfill IDs for legacy entries
     });
+    if (!S.settings.breakdown || !S.settings.breakdown.length)
+      S.settings.breakdown = [...DEFAULT_BREAKDOWN];
     if (!S.settings.quickAdds || !S.settings.quickAdds.length) {
       S.settings.quickAdds = [...DEFAULT_QUICK];
     } else {
@@ -415,6 +451,125 @@ function fixedCostForPeriod(f, period) {
 }
 const fixedForPeriod = period => (S.settings.fixedCosts || []).reduce((a,f) => a + fixedCostForPeriod(f, period), 0);
 const fixedPerPeriod = () => fixedForPeriod(S.currentPeriod);
+
+// ── ID GENERATOR ──────────────────────────────────────────────────────────
+function genId(prefix) {
+  return prefix + '_' + Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+}
+
+// ── FIXED-COST PAID STATUS ────────────────────────────────────────────────
+// For a date-based fixed cost, return the actual JS Date when it bills inside
+// the given period (or null if it doesn't bill in that period at all).
+function getFixedBillingDate(f, period) {
+  if (f.billingType !== 'date') return null;
+  const range = getPeriodDateRange(period);
+  if (!range) return null;
+  const day = parseInt(f.billingDay) || 1;
+  const {start, end} = range;
+  let m = new Date(start.getFullYear(), start.getMonth(), 1);
+  while (m <= end) {
+    const lastDay  = new Date(m.getFullYear(), m.getMonth() + 1, 0).getDate();
+    const billDate = new Date(m.getFullYear(), m.getMonth(), Math.min(day, lastDay));
+    if (billDate >= start && billDate <= end) return billDate;
+    m.setMonth(m.getMonth() + 1);
+  }
+  return null;
+}
+
+// Status values: 'paid' | 'pending' | 'upcoming' | 'not-in-period'
+//   paid          → user (or auto) has marked this as already paid
+//   pending       → split-type cost waiting for user action
+//   upcoming      → date-type cost in this period but the billing day hasn't arrived
+//   not-in-period → date-type cost; doesn't bill in this period at all
+function getFixedStatus(f, period) {
+  if (!f || !period) return 'pending';
+  // Manual override always wins
+  const override = period.fixedPaid?.[f.id];
+  if (override === true)  return 'paid';
+  if (override === false) return 'pending';
+  // Auto-derive from type + date
+  if (f.billingType === 'date') {
+    const billDate = getFixedBillingDate(f, period);
+    if (!billDate) return 'not-in-period';
+    const today = new Date(); today.setHours(0,0,0,0);
+    return billDate <= today ? 'paid' : 'upcoming';
+  }
+  // Split-type — always pending until manual mark
+  return 'pending';
+}
+
+function toggleFixedPaid(idx) {
+  if (!S.currentPeriod) return;
+  const f = S.settings.fixedCosts[idx];
+  if (!f || !f.id) return;
+  if (!S.currentPeriod.fixedPaid) S.currentPeriod.fixedPaid = {};
+  const isPaid = getFixedStatus(f, S.currentPeriod) === 'paid';
+  S.currentPeriod.fixedPaid[f.id] = !isPaid;
+  save(); render();
+}
+
+// ── BREAKDOWN LAYOUT ──────────────────────────────────────────────────────
+function moveBreakdown(i, delta) {
+  const arr = S.settings.breakdown;
+  const j = i + delta;
+  if (!arr || j < 0 || j >= arr.length) return;
+  [arr[i], arr[j]] = [arr[j], arr[i]];
+  save(); render();
+}
+function removeBreakdown(id) {
+  S.settings.breakdown = (S.settings.breakdown || []).filter(s => s !== id);
+  save(); render();
+}
+function addBreakdown(id) {
+  if (!S.settings.breakdown) S.settings.breakdown = [];
+  if (!S.settings.breakdown.includes(id)) S.settings.breakdown.push(id);
+  save(); render();
+}
+
+// Render one row of the Period-tab breakdown card. ctx packages the values
+// computed in renderHome so we don't recompute them per stat.
+function renderBreakdownRow(stat, ctx) {
+  const {cp, income, fixed, tithe, varSpent, remaining, titheBtn} = ctx;
+  const investStyle = `border-top:1px solid var(--border);border-bottom:none;margin-top:4px;padding-top:12px`;
+  switch (stat) {
+    case 'income':
+      return `<div class="sum-row"><span class="sum-label">Gross income</span><span class="sum-val">${fmt(income)}</span></div>`;
+    case 'fixed_total':
+      return `<div class="sum-row"><span class="sum-label">Fixed costs</span><span class="sum-val r">−${fmt(fixed)}</span></div>`;
+    case 'giving':
+      return `<div class="sum-row">
+        <span class="sum-label" style="display:flex;align-items:center">Giving (${S.settings.tithe}%) ${titheBtn}</span>
+        <span class="sum-val r">−${fmt(tithe)}</span>
+      </div>`;
+    case 'variable':
+      return `<div class="sum-row"><span class="sum-label">Variable expenses</span><span class="sum-val a">−${fmt(varSpent)}</span></div>`;
+    case 'invest':
+      return `<div class="sum-row" style="${investStyle}">
+        <span class="sum-label" style="font-weight:500;color:var(--text)">To invest</span>
+        <span class="sum-val" style="color:${remaining<0?'var(--red)':'var(--green)'};font-size:16px">${remaining<0?'−':''}${fmt(remaining)}</span>
+      </div>`;
+  }
+  // Individual subscription lines (sub:<id>)
+  if (typeof stat === 'string' && stat.startsWith('sub:')) {
+    const f = (S.settings.fixedCosts || []).find(c => c.id === stat.slice(4));
+    if (!f) return '';
+    const amt = fixedCostForPeriod(f, cp);
+    if (amt === 0) return '';  // not billing this period — skip
+    const status = getFixedStatus(f, cp);
+    const paidInd = status === 'paid' ? ' <span style="color:var(--green);font-size:10px;font-family:var(--font-mono)">✓</span>' : '';
+    return `<div class="sum-row">
+      <span class="sum-label">${f.name}${paidInd}</span>
+      <span class="sum-val r">−${fmt(amt)}</span>
+    </div>`;
+  }
+  return '';
+}
+function renderBreakdownRows(ctx) {
+  // Use the user's order if they have one (even if empty — they may have
+  // intentionally cleared everything). Only fall back if it's never been set.
+  const order = Array.isArray(S.settings.breakdown) ? S.settings.breakdown : DEFAULT_BREAKDOWN;
+  return order.map(s => renderBreakdownRow(s, ctx)).join('') || '<div class="empty" style="padding:8px 0;font-size:12px">No stats — add some in Settings → Period Breakdown.</div>';
+}
 // ── AUTO ROLLOVER ─────────────────────────────────────────────────────────
 function checkAutoRollover() {
   if (!S.currentPeriod || !S.settings.lastPayday) return;
@@ -434,6 +589,7 @@ function checkAutoRollover() {
       startDateISO: isoDate,
       income: 0, expenses: [], carryover: carry,
       tithePaid: !!S.settings.titheAutoPaid,
+      fixedPaid: {},
     };
     save();
     _autoRollMsg = 'New pay period started — budget carried over';
@@ -515,6 +671,7 @@ function newPeriodObj(isoDate, carry) {
     income: 0, expenses: [], carryover: carry || {},
     // Auto setting decides whether the new period starts with giving already paid
     tithePaid: !!S.settings.titheAutoPaid,
+    fixedPaid: {},  // per-fixed-cost paid override map (id → true|false)
   };
 }
 // ── ROUTING ───────────────────────────────────────────────────────────────
@@ -572,19 +729,33 @@ function renderHome() {
           <button class="del" onclick="delExp(${idx})">×</button>
         </div>`;
       }).join('');
-  const fixedRows = (S.settings.fixedCosts || []).map(f => {
-    const amt   = fixedCostForPeriod(f, cp);
-    const isDue = amt > 0;
-    const tag   = f.billingType === 'date'
-      ? (isDue ? `<span class="fixed-tag due">due ${ordinal(f.billingDay)}</span>`
-               : `<span class="fixed-tag skip">next mo.</span>`)
-      : '';
-    return `<div class="fixed-row${isDue ? '' : ' dimmed'}">
+  const fixedRows = (S.settings.fixedCosts || []).map((f, i) => {
+    const amt    = fixedCostForPeriod(f, cp);
+    const status = getFixedStatus(f, cp);
+    if (status === 'not-in-period') {
+      // Date-based subscription that doesn't bill in this period — keep dimmed
+      return `<div class="fixed-row dimmed">
+        <span style="width:18px;flex-shrink:0" aria-hidden="true"></span>
+        <div class="pip" style="background:${f.color||'#555'};height:22px"></div>
+        <div class="fixed-name">${f.name}<span class="fixed-tag skip">next mo.</span></div>
+        <div class="fixed-amt" style="color:var(--muted)">${fmt(parseFloat(f.monthly))}</div>
+      </div>`;
+    }
+    const isPaid  = status === 'paid';
+    const billDate = getFixedBillingDate(f, cp);
+    let tag;
+    if (status === 'paid') {
+      tag = `<span class="fixed-tag paid">✓ paid</span>`;
+    } else if (status === 'upcoming' && billDate) {
+      tag = `<span class="fixed-tag upcoming">due ${billDate.toLocaleDateString('en-US',{month:'short',day:'numeric'})}</span>`;
+    } else {
+      tag = `<span class="fixed-tag pending">pending</span>`;
+    }
+    return `<div class="fixed-row${isPaid ? ' paid' : ''}">
+      <input type="checkbox" class="fixed-check" ${isPaid?'checked':''} onchange="toggleFixedPaid(${i})" aria-label="Mark ${f.name} paid"/>
       <div class="pip" style="background:${f.color||'#555'};height:22px"></div>
       <div class="fixed-name">${f.name}${tag}</div>
-      <div class="fixed-amt" style="color:${isDue ? 'var(--red)' : 'var(--muted)'}">
-        ${isDue ? '−' + fmt(amt) : fmt(parseFloat(f.monthly))}
-      </div>
+      <div class="fixed-amt" style="color:${isPaid?'var(--muted)':'var(--red)'}">−${fmt(amt)}</div>
     </div>`;
   }).join('');
   const titheBtn = `<button onclick="toggleTithe()" style="background:none;border:1px solid ${cp.tithePaid?'var(--green)':'var(--border)'};color:${cp.tithePaid?'var(--green)':'var(--muted)'};border-radius:4px;padding:2px 6px;font-size:10px;cursor:pointer;margin-left:6px;font-family:var(--font);transition:all 0.15s">${cp.tithePaid ? '✓ Paid' : 'Mark paid'}</button>`;
@@ -612,17 +783,7 @@ function renderHome() {
     </div>
     <div class="card">
       <div class="card-label">Breakdown</div>
-      <div class="sum-row"><span class="sum-label">Gross income</span><span class="sum-val">${fmt(income)}</span></div>
-      <div class="sum-row"><span class="sum-label">Fixed costs</span><span class="sum-val r">−${fmt(fixed)}</span></div>
-      <div class="sum-row">
-        <span class="sum-label" style="display:flex;align-items:center">Giving (${S.settings.tithe}%) ${titheBtn}</span>
-        <span class="sum-val r">−${fmt(tithe)}</span>
-      </div>
-      <div class="sum-row"><span class="sum-label">Variable expenses</span><span class="sum-val a">−${fmt(varSpent)}</span></div>
-      <div class="sum-row" style="border-top:1px solid var(--border);border-bottom:none;margin-top:4px;padding-top:12px">
-        <span class="sum-label" style="font-weight:500;color:var(--text)">To invest</span>
-        <span class="sum-val" style="color:${remaining<0?'var(--red)':'var(--green)'};font-size:16px">${remaining<0?'−':''}${fmt(remaining)}</span>
-      </div>
+      ${renderBreakdownRows({cp, income, fixed, tithe, varSpent, remaining, titheBtn})}
     </div>
     <div class="card">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
@@ -968,11 +1129,43 @@ function renderSettings() {
       </div>
     </div>`).join('');
 
-  // ─ Page layout: budgeting first, system controls collapsed at bottom ──
+  // ─ Breakdown layout — list of stat IDs in user order, plus disabled ones ─
+  const enabledOrder = Array.isArray(s.breakdown) ? s.breakdown : DEFAULT_BREAKDOWN;
+  const allBreakdownStats = [
+    ...Object.entries(BUILTIN_BREAKDOWN_LABELS).map(([id, label]) => ({id, label, group:'built-in'})),
+    ...(s.fixedCosts || []).map(f => ({id:'sub:'+f.id, label:f.name, group:'subscription'})),
+  ];
+  const breakdownLabel = id => {
+    const m = allBreakdownStats.find(x => x.id === id);
+    return m ? m.label : id;
+  };
+  const enabledBdRows = enabledOrder.map((id, i) => `
+    <div class="bd-row">
+      <div class="bd-name">${breakdownLabel(id)}</div>
+      <button class="bd-btn" onclick="moveBreakdown(${i},-1)" ${i===0?'disabled':''} title="Move up">↑</button>
+      <button class="bd-btn" onclick="moveBreakdown(${i},1)"  ${i===enabledOrder.length-1?'disabled':''} title="Move down">↓</button>
+      <button class="bd-btn bd-rm" onclick="removeBreakdown('${id}')" title="Remove">×</button>
+    </div>`).join('');
+  const disabledBd = allBreakdownStats.filter(s => !enabledOrder.includes(s.id));
+  const disabledBdRows = disabledBd.map(stat => `
+    <div class="bd-row dimmed">
+      <div class="bd-name">${stat.label}${stat.group==='subscription'?' <span style="font-size:10px;color:var(--muted);font-family:var(--font-mono);margin-left:4px">subscription</span>':''}</div>
+      <button class="bd-add-btn" onclick="addBreakdown('${stat.id}')">+ Add</button>
+    </div>`).join('');
+
+  // ─ Page layout: breakdown first, then budgets, subs, quick adds, system ─
   return `
     <div class="page-header"><h1>Settings</h1></div>
 
-    <!-- ── 1. Category budgets (PRIMARY) ── -->
+    <!-- ── 0. Breakdown layout (FIRST — controls Period tab summary) ── -->
+    <div class="card">
+      <div class="card-label">Period Breakdown</div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:12px">Choose which stats appear on the Period tab summary card, and in what order. You can also break out individual subscriptions as their own line.</div>
+      ${enabledBdRows || '<div class="empty" style="padding:8px 0">No stats — add some below</div>'}
+      ${disabledBd.length ? `<div class="bd-section-label">Available</div>${disabledBdRows}` : ''}
+    </div>
+
+    <!-- ── 1. Category budgets ── -->
     <div class="card">
       <div class="card-label">Category Budgets</div>
       <div style="font-size:12px;color:var(--muted);margin-bottom:12px">Monthly amounts per category. Divided by pay frequency each period. Leftover carries forward.</div>
@@ -1099,12 +1292,18 @@ function updateFixed(idx, field, val) {
   save();
 }
 function addFixed() {
-  S.settings.fixedCosts.push({name: 'New Subscription', monthly: 0, color: '#ffb347', billingType: 'split', billingDay: 1});
+  S.settings.fixedCosts.push({id: genId('fc'), name: 'New Subscription', monthly: 0, color: '#ffb347', billingType: 'split', billingDay: 1});
   save(); render();
 }
 function delFixed(idx) {
   if (!confirm('Delete this fixed cost?')) return;
-  S.settings.fixedCosts.splice(idx, 1); save(); render();
+  const id = S.settings.fixedCosts[idx]?.id;
+  S.settings.fixedCosts.splice(idx, 1);
+  // If this subscription was in the breakdown layout, remove it
+  if (id && S.settings.breakdown) {
+    S.settings.breakdown = S.settings.breakdown.filter(s => s !== 'sub:' + id);
+  }
+  save(); render();
 }
 function updateQuick(idx, field, val) {
   if (field === 'amount') S.settings.quickAdds[idx][field] = parseFloat(val) || 0;
@@ -1211,7 +1410,8 @@ function resetAll() {
   S = {
     currentPeriod: null, history: [],
     settings: {tithe: 10, titheAutoPaid: false, payFreq: 'biweekly', lastPayday: '',
-      cats: {...DEFAULT_CATS}, fixedCosts: [...DEFAULT_FIXED], quickAdds: [...DEFAULT_QUICK]}
+      cats: {...DEFAULT_CATS}, fixedCosts: [...DEFAULT_FIXED], quickAdds: [...DEFAULT_QUICK],
+      breakdown: [...DEFAULT_BREAKDOWN]}
   };
   save(); render(); toast('All data cleared');
 }
