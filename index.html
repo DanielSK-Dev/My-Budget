@@ -86,6 +86,11 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 .bd-add-btn{padding:6px 10px;background:transparent;border:1px solid var(--border);border-radius:7px;color:var(--green);font-size:11px;cursor:pointer;font-family:var(--font-mono);flex-shrink:0;letter-spacing:.04em}
 .bd-add-btn:active{background:var(--green-dim)}
 .bd-section-label{font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);font-family:var(--font-mono);margin:14px 0 6px}
+/* Drag handle (three lines) for reorderable breakdown rows */
+.bd-drag{width:32px;height:32px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;color:var(--muted);cursor:grab;touch-action:none;-webkit-user-select:none;user-select:none}
+.bd-drag:active{color:var(--text);cursor:grabbing}
+.bd-row.bd-dragging{background:var(--surface2);box-shadow:0 6px 18px rgba(0,0,0,.5);border-radius:8px;border-bottom-color:transparent}
+.bd-row.bd-dragging .bd-drag{color:var(--green)}
 .sum-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px}
 .sum-row:last-child{border-bottom:none}
 .sum-label{color:var(--muted)}
@@ -269,7 +274,7 @@ details[open] > summary .summary-chevron {
 <div id="toast"></div>
 <script>
 // ── VERSION ───────────────────────────────────────────────────────────────
-const APP_VERSION = '1.6.0';
+const APP_VERSION = '1.6.1';
 // ── DEFAULTS ──────────────────────────────────────────────────────────────
 const DEFAULT_CATS = {
   groceries: {label:'Groceries',     color:'#00c97a', monthly:200},
@@ -476,23 +481,28 @@ function getFixedBillingDate(f, period) {
   return null;
 }
 
-// Status values: 'paid' | 'pending' | 'upcoming' | 'not-in-period'
-//   paid          → user (or auto) has marked this as already paid
-//   pending       → split-type cost waiting for user action
-//   upcoming      → date-type cost in this period but the billing day hasn't arrived
-//   not-in-period → date-type cost; doesn't bill in this period at all
+// Status values: 'paid' | 'pending'
+//   paid    → already paid (date-based: this calendar month's billing day has passed,
+//             or user manually checked the box)
+//   pending → due/upcoming (date-based: this month's billing day hasn't arrived,
+//             OR split-type waiting for manual mark)
+//
+// We check the calendar month, NOT the pay period — a subscription that bills
+// on the 1st should read as "paid" any time after the 1st, even if today's pay
+// period started later in the month.
 function getFixedStatus(f, period) {
   if (!f || !period) return 'pending';
   // Manual override always wins
   const override = period.fixedPaid?.[f.id];
   if (override === true)  return 'paid';
   if (override === false) return 'pending';
-  // Auto-derive from type + date
+  // Auto-derive from billing type
   if (f.billingType === 'date') {
-    const billDate = getFixedBillingDate(f, period);
-    if (!billDate) return 'not-in-period';
-    const today = new Date(); today.setHours(0,0,0,0);
-    return billDate <= today ? 'paid' : 'upcoming';
+    const day = parseInt(f.billingDay) || 1;
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+    const thisMonthBill = new Date(today.getFullYear(), today.getMonth(), Math.min(day, lastDay));
+    return thisMonthBill <= today ? 'paid' : 'pending';
   }
   // Split-type — always pending until manual mark
   return 'pending';
@@ -509,13 +519,6 @@ function toggleFixedPaid(idx) {
 }
 
 // ── BREAKDOWN LAYOUT ──────────────────────────────────────────────────────
-function moveBreakdown(i, delta) {
-  const arr = S.settings.breakdown;
-  const j = i + delta;
-  if (!arr || j < 0 || j >= arr.length) return;
-  [arr[i], arr[j]] = [arr[j], arr[i]];
-  save(); render();
-}
 function removeBreakdown(id) {
   S.settings.breakdown = (S.settings.breakdown || []).filter(s => s !== id);
   save(); render();
@@ -524,6 +527,77 @@ function addBreakdown(id) {
   if (!S.settings.breakdown) S.settings.breakdown = [];
   if (!S.settings.breakdown.includes(id)) S.settings.breakdown.push(id);
   save(); render();
+}
+
+// ── BREAKDOWN DRAG-TO-REORDER ─────────────────────────────────────────────
+// Pointer Events work for both touch and mouse. While dragging, the picked-up
+// row follows the pointer; siblings shift up/down to preview the drop slot.
+let _bdDrag = null;
+function bdDragStart(e, idx) {
+  e.preventDefault();
+  const handle = e.currentTarget;
+  const row    = handle.closest('.bd-row');
+  if (!row || !row.parentElement) return;
+  const allRows = Array.from(row.parentElement.querySelectorAll('.bd-row:not(.dimmed)'));
+  const rowH = row.getBoundingClientRect().height;
+  _bdDrag = {
+    startIdx:   idx,
+    currentIdx: idx,
+    row, allRows, rowH,
+    startY:     e.clientY,
+    pointerId:  e.pointerId,
+    handle,
+  };
+  row.classList.add('bd-dragging');
+  row.style.position = 'relative';
+  row.style.zIndex   = '20';
+  try { handle.setPointerCapture(e.pointerId); } catch(_) {}
+  document.addEventListener('pointermove',   bdDragMove, {passive:false});
+  document.addEventListener('pointerup',     bdDragEnd);
+  document.addEventListener('pointercancel', bdDragEnd);
+}
+function bdDragMove(e) {
+  if (!_bdDrag) return;
+  e.preventDefault();
+  const dy = e.clientY - _bdDrag.startY;
+  _bdDrag.row.style.transform = `translateY(${dy}px)`;
+  // Clamp the new index inside the visible rows
+  const newIdx = Math.max(0, Math.min(
+    _bdDrag.allRows.length - 1,
+    _bdDrag.startIdx + Math.round(dy / _bdDrag.rowH)
+  ));
+  if (newIdx !== _bdDrag.currentIdx) {
+    _bdDrag.currentIdx = newIdx;
+    // Visually shift the OTHER rows to open up a slot at newIdx
+    _bdDrag.allRows.forEach((r, i) => {
+      if (r === _bdDrag.row) return;
+      let shift = 0;
+      if (newIdx > _bdDrag.startIdx && i > _bdDrag.startIdx && i <= newIdx) shift = -_bdDrag.rowH;
+      if (newIdx < _bdDrag.startIdx && i >= newIdx && i < _bdDrag.startIdx) shift =  _bdDrag.rowH;
+      r.style.transition = 'transform .18s cubic-bezier(0.16,1,0.3,1)';
+      r.style.transform  = `translateY(${shift}px)`;
+    });
+  }
+}
+function bdDragEnd() {
+  if (!_bdDrag) return;
+  const {startIdx, currentIdx, row, allRows} = _bdDrag;
+  // Reset visuals
+  row.classList.remove('bd-dragging');
+  row.style.cssText = '';
+  allRows.forEach(r => { r.style.transition = ''; r.style.transform = ''; });
+  document.removeEventListener('pointermove',   bdDragMove);
+  document.removeEventListener('pointerup',     bdDragEnd);
+  document.removeEventListener('pointercancel', bdDragEnd);
+  _bdDrag = null;
+  // Commit reorder if it actually changed
+  if (currentIdx !== startIdx && Array.isArray(S.settings.breakdown)) {
+    const arr = S.settings.breakdown;
+    const [item] = arr.splice(startIdx, 1);
+    arr.splice(currentIdx, 0, item);
+    save();
+    render();
+  }
 }
 
 // Render one row of the Period-tab breakdown card. ctx packages the values
@@ -730,32 +804,35 @@ function renderHome() {
         </div>`;
       }).join('');
   const fixedRows = (S.settings.fixedCosts || []).map((f, i) => {
-    const amt    = fixedCostForPeriod(f, cp);
-    const status = getFixedStatus(f, cp);
-    if (status === 'not-in-period') {
-      // Date-based subscription that doesn't bill in this period — keep dimmed
-      return `<div class="fixed-row dimmed">
-        <span style="width:18px;flex-shrink:0" aria-hidden="true"></span>
-        <div class="pip" style="background:${f.color||'#555'};height:22px"></div>
-        <div class="fixed-name">${f.name}<span class="fixed-tag skip">next mo.</span></div>
-        <div class="fixed-amt" style="color:var(--muted)">${fmt(parseFloat(f.monthly))}</div>
-      </div>`;
-    }
-    const isPaid  = status === 'paid';
-    const billDate = getFixedBillingDate(f, cp);
+    const status   = getFixedStatus(f, cp);
+    const isPaid   = status === 'paid';
+    const isDate   = f.billingType === 'date';
+    const monthly  = parseFloat(f.monthly) || 0;
+    const periodAmt = fixedCostForPeriod(f, cp);
+    // Date-based always shows the full monthly amount; split shows per-period.
+    const displayAmt = isDate ? monthly : periodAmt;
+    // Red minus = will deduct from THIS pay period's budget. Muted = informational
+    // (paid already, or due later this month but outside this pay period).
+    const affectsPeriod = periodAmt > 0;
     let tag;
-    if (status === 'paid') {
+    if (isPaid) {
       tag = `<span class="fixed-tag paid">✓ paid</span>`;
-    } else if (status === 'upcoming' && billDate) {
-      tag = `<span class="fixed-tag upcoming">due ${billDate.toLocaleDateString('en-US',{month:'short',day:'numeric'})}</span>`;
+    } else if (isDate) {
+      // Show this calendar month's billing date so user knows when it'll hit
+      const day = parseInt(f.billingDay) || 1;
+      const today = new Date(); today.setHours(0, 0, 0, 0);
+      const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+      const billDate = new Date(today.getFullYear(), today.getMonth(), Math.min(day, lastDay));
+      tag = `<span class="fixed-tag pending">due ${billDate.toLocaleDateString('en-US',{month:'short',day:'numeric'})}</span>`;
     } else {
       tag = `<span class="fixed-tag pending">pending</span>`;
     }
+    const amtColor = isPaid ? 'var(--muted)' : (affectsPeriod ? 'var(--red)' : 'var(--muted)');
     return `<div class="fixed-row${isPaid ? ' paid' : ''}">
       <input type="checkbox" class="fixed-check" ${isPaid?'checked':''} onchange="toggleFixedPaid(${i})" aria-label="Mark ${f.name} paid"/>
       <div class="pip" style="background:${f.color||'#555'};height:22px"></div>
       <div class="fixed-name">${f.name}${tag}</div>
-      <div class="fixed-amt" style="color:${isPaid?'var(--muted)':'var(--red)'}">−${fmt(amt)}</div>
+      <div class="fixed-amt" style="color:${amtColor}">−${fmt(displayAmt)}</div>
     </div>`;
   }).join('');
   const titheBtn = `<button onclick="toggleTithe()" style="background:none;border:1px solid ${cp.tithePaid?'var(--green)':'var(--border)'};color:${cp.tithePaid?'var(--green)':'var(--muted)'};border-radius:4px;padding:2px 6px;font-size:10px;cursor:pointer;margin-left:6px;font-family:var(--font);transition:all 0.15s">${cp.tithePaid ? '✓ Paid' : 'Mark paid'}</button>`;
@@ -800,7 +877,7 @@ function renderHome() {
     <div class="card">
       <div class="card-label">Fixed costs this period</div>
       ${fixedRows || '<div class="empty" style="padding:10px 0">No fixed costs</div>'}
-      <div style="font-size:10px;color:var(--muted);font-family:var(--font-mono);margin-top:10px;padding-top:8px;border-top:1px solid var(--border)">Dimmed items billed on a specific day — not in this period</div>
+      <div style="font-size:10px;color:var(--muted);font-family:var(--font-mono);margin-top:10px;padding-top:8px;border-top:1px solid var(--border)">Tap the box to manually mark paid · auto-marks once the billing day passes</div>
     </div>
     <div class="card">
       <div class="card-label">Variable expenses</div>
@@ -1140,10 +1217,15 @@ function renderSettings() {
     return m ? m.label : id;
   };
   const enabledBdRows = enabledOrder.map((id, i) => `
-    <div class="bd-row">
+    <div class="bd-row" data-bd-idx="${i}">
+      <div class="bd-drag" onpointerdown="bdDragStart(event, ${i})" title="Drag to reorder">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+          <line x1="2" y1="4"  x2="12" y2="4"  stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          <line x1="2" y1="7"  x2="12" y2="7"  stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          <line x1="2" y1="10" x2="12" y2="10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+      </div>
       <div class="bd-name">${breakdownLabel(id)}</div>
-      <button class="bd-btn" onclick="moveBreakdown(${i},-1)" ${i===0?'disabled':''} title="Move up">↑</button>
-      <button class="bd-btn" onclick="moveBreakdown(${i},1)"  ${i===enabledOrder.length-1?'disabled':''} title="Move down">↓</button>
       <button class="bd-btn bd-rm" onclick="removeBreakdown('${id}')" title="Remove">×</button>
     </div>`).join('');
   const disabledBd = allBreakdownStats.filter(s => !enabledOrder.includes(s.id));
