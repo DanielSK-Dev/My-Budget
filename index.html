@@ -339,6 +339,7 @@ let _histEdit       = null;  // {pid, ei} — which history expense is being edi
 let _histAdd        = null;  // pid — which period is showing the inline add form
 let _catSuggestTimer = null; // debounce handle for smart categorization
 let _catsEditing    = false; // toggles budget edit mode on Budgets tab
+let _catEditKey     = null;  // which category is open in edit mode
 // ── LOAD / SAVE ───────────────────────────────────────────────────────────
 function load() {
   try {
@@ -727,10 +728,16 @@ function computeCarryover(period) {
   const out = {};
   const ppm = S.settings.payFreq === 'weekly' ? 4 : S.settings.payFreq === 'monthly' ? 1 : 2;
   Object.keys(S.settings.cats).forEach(k => {
-    const base   = (S.settings.cats[k]?.monthly || 0) / ppm;
-    const carry  = period.carryover?.[k] || 0;
-    const spent  = (period.expenses || []).filter(e => e.cat === k).reduce((a,e) => a + parseFloat(e.amount), 0);
-    out[k] = parseFloat((base + carry - spent).toFixed(2));
+    const cat   = S.settings.cats[k];
+    const base  = (cat?.monthly || 0) / ppm;
+    const carry = period.carryover?.[k] || 0;
+    const spent = (period.expenses || []).filter(e => e.cat === k).reduce((a,e) => a + parseFloat(e.amount), 0);
+    let raw = parseFloat((base + carry - spent).toFixed(2));
+    const mode = cat?.carryMode || 'both';
+    if      (mode === 'none')    raw = 0;
+    else if (mode === 'surplus' && raw < 0) raw = 0; // forgive debt
+    else if (mode === 'debt'    && raw > 0) raw = 0; // lose surplus
+    out[k] = raw;
   });
   return out;
 }
@@ -778,7 +785,7 @@ function newPeriodObj(isoDate, carry) {
 let TAB = 'home';
 function switchTab(t) {
   TAB = t;
-  _histEdit = null; _histAdd = null; _catsEditing = false;
+  _histEdit = null; _histAdd = null; _catsEditing = false; _catEditKey = null;
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === t));
   render();
 }
@@ -954,23 +961,83 @@ function renderHome() {
 }
 // ── CATEGORY BUDGETS ──────────────────────────────────────────────────────
 function renderCats() {
-  const cats       = S.settings.cats;
-  const s          = S.settings;
+  const cats = S.settings.cats;
+  const s    = S.settings;
+  const ppm  = s.payFreq === 'weekly' ? 4 : s.payFreq === 'monthly' ? 1 : 2;
   const visibleCats = Object.entries(cats).filter(([k,c]) =>
     (c.monthly||0) > 0 || catSpent(k) > 0 || (S.currentPeriod?.carryover?.[k]||0) !== 0
   );
+
   const cards = visibleCats.map(([k,c]) => {
-    const budget   = catBudget(k);            // base + positive carry only
-    const debt     = catDebt(k);              // absolute debt from last period
+    const budget      = catBudget(k);
+    const debt        = catDebt(k);
     const actualSpent = catSpent(k);
-    const spent    = actualSpent + debt;      // debt counts as already spent
-    const rem      = budget - spent;
-    const pct      = budget > 0 ? Math.min(100, Math.round(spent/budget*100)) : 0;
-    const barCol   = pct>90 ? 'var(--red)' : pct>70 ? 'var(--amber)' : c.color;
-    const remClass = rem<0 ? 'r' : rem < budget*0.25 ? 'a' : 'g';
-    const carry    = S.currentPeriod?.carryover?.[k] || 0;
-    const catExps  = (S.currentPeriod?.expenses||[]).filter(e => e.cat===k);
-    // Debt row shown at top of transaction list
+    const spent       = actualSpent + debt;
+    const rem         = budget - spent;
+    const pct         = budget > 0 ? Math.min(100, Math.round(spent/budget*100)) : 0;
+    const barCol      = pct>90 ? 'var(--red)' : pct>70 ? 'var(--amber)' : c.color;
+    const remClass    = rem<0 ? 'r' : rem < budget*0.25 ? 'a' : 'g';
+    const carry       = S.currentPeriod?.carryover?.[k] || 0;
+
+    const headerHtml = `
+      <div class="cat-header">
+        <div class="pip" style="background:${c.color};height:36px"></div>
+        <div class="cat-name">${c.label}</div>
+        <div class="cat-rem ${remClass}">${rem<0?'−':''}${fmt(rem)}</div>
+        <span class="summary-chevron">${_catsEditing ? (_catEditKey===k?'▴':'▾') : '▾'}</span>
+      </div>
+      <div class="prog-track"><div class="prog-fill" style="width:${pct}%;background:${barCol}"></div></div>
+      <div class="prog-labels">
+        <span>${fmt(actualSpent)} spent${debt > 0 ? ` + ${fmt(debt)} debt` : ''}</span>
+        <span>${fmt(budget)} budget${carry > 0 ? ` + ${fmt(carry)} rollover` : ''}</span>
+      </div>`;
+
+    if (_catsEditing) {
+      const isOpen    = _catEditKey === k;
+      const perPeriod = Math.round((c.monthly || 0) / ppm * 100) / 100;
+      const mode      = c.carryMode || 'both';
+      const editPanel = isOpen ? `
+        <div onclick="event.stopPropagation()" style="padding:4px 16px 16px;border-top:1px solid var(--border)">
+          <div class="field" style="margin-bottom:10px;margin-top:10px">
+            <label>Name</label>
+            <input type="text" value="${c.label.replace(/"/g,'&quot;')}" placeholder="Category name" maxlength="30"
+              onchange="updateCat('${k}','label',this.value)"/>
+          </div>
+          <div class="field" style="margin-bottom:10px">
+            <label>Budget per period ($)</label>
+            <input type="number" value="${perPeriod}" placeholder="0" inputmode="decimal" min="0" step="1"
+              onchange="setCatPerPeriod('${k}',this.value)"/>
+          </div>
+          <div class="field" style="margin-bottom:14px">
+            <label>Carry over</label>
+            <select onchange="updateCat('${k}','carryMode',this.value)">
+              <option value="both"    ${mode==='both'   ?'selected':''}>Surplus &amp; debt</option>
+              <option value="surplus" ${mode==='surplus'?'selected':''}>Surplus only (forgive debt)</option>
+              <option value="debt"    ${mode==='debt'   ?'selected':''}>Debt only (lose surplus)</option>
+              <option value="none"    ${mode==='none'   ?'selected':''}>Neither (fresh each period)</option>
+            </select>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px">
+            <input type="color" value="${c.color}" title="Color"
+              style="width:34px;height:30px;padding:2px;border:1px solid var(--border);border-radius:6px;cursor:pointer;background:none"
+              onchange="updateCat('${k}','color',this.value)"/>
+            <span style="font-size:12px;color:var(--muted);flex:1">Color</span>
+            <button onclick="event.stopPropagation();delCat('${k}')"
+              style="background:none;border:1px solid var(--red);color:var(--red);border-radius:6px;padding:4px 10px;font-size:12px;cursor:pointer">
+              Delete
+            </button>
+          </div>
+        </div>` : '';
+      return `<div class="card" style="padding:0;cursor:pointer" onclick="openCatEdit('${k}')">
+        <div style="padding:16px${isOpen?';padding-bottom:12px':''}">
+          ${headerHtml}
+        </div>
+        ${editPanel}
+      </div>`;
+    }
+
+    // ── Normal (read-only) mode — collapsible transactions ────────────────
+    const catExps = (S.currentPeriod?.expenses||[]).filter(e => e.cat===k);
     const debtRow = debt > 0
       ? `<div class="hist-exp-row" style="opacity:.7">
            <span class="hist-exp-date">carry</span>
@@ -989,17 +1056,7 @@ function renderCats() {
       : '<div style="padding:8px 0;color:var(--muted);font-size:12px">No transactions yet.</div>';
     return `<details class="cat-card" style="padding:0">
       <summary style="padding:16px;outline:none;cursor:pointer;display:block">
-        <div class="cat-header">
-          <div class="pip" style="background:${c.color};height:36px"></div>
-          <div class="cat-name">${c.label}</div>
-          <div class="cat-rem ${remClass}">${rem<0?'−':''}${fmt(rem)}</div>
-          <span class="summary-chevron">▾</span>
-        </div>
-        <div class="prog-track"><div class="prog-fill" style="width:${pct}%;background:${barCol}"></div></div>
-        <div class="prog-labels">
-          <span>${fmt(actualSpent)} spent${debt > 0 ? ` + ${fmt(debt)} debt` : ''}</span>
-          <span>${fmt(budget)} budget${carry > 0 ? ` + ${fmt(carry)} rollover` : ''}</span>
-        </div>
+        ${headerHtml}
         ${carry > 0 ? `<div class="carry-tag">+ ${fmt(carry)} carried over from last period</div>` : ''}
         ${debt  > 0 ? `<div class="carry-tag" style="color:var(--red)">− ${fmt(debt)} debt from last period (pre-counted as spent)</div>` : ''}
       </summary>
@@ -1009,34 +1066,28 @@ function renderCats() {
       </div>
     </details>`;
   }).join('');
-  const catRows = Object.entries(s.cats).map(([k,c]) => `
-    <div class="be-row">
-      <input type="color" class="color-picker" value="${c.color}" onchange="updateCat('${k}','color',this.value)" />
-      <input type="text" class="input-name" value="${c.label}" placeholder="Category" onchange="updateCat('${k}','label',this.value)" />
-      <input type="number" class="input-num" value="${c.monthly||0}" placeholder="0" inputmode="decimal" min="0" step="1" onchange="updateCat('${k}','monthly',this.value)"/>
-      <button class="del-btn" onclick="delCat('${k}')">×</button>
-    </div>`).join('');
-  const editSection = _catsEditing ? `
-    <div class="sec-div" style="margin-top:8px">Edit budgets</div>
-    <div class="card">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+
+  const addBtn = _catsEditing
+    ? `<button class="add-btn" style="margin-top:8px" onclick="addCat()">+ Add Category</button>`
+    : '';
+
+  return `
+    <div class="page-header" style="display:flex;align-items:flex-start;justify-content:space-between">
+      <div><h1>Budgets</h1><p>Tap a category to edit when in edit mode</p></div>
+      <button onclick="toggleCatsEdit()" style="background:none;border:1px solid var(--border);color:${_catsEditing?'var(--green)':'var(--muted)'};border-radius:8px;padding:6px 14px;font-size:13px;cursor:pointer;margin-top:4px;flex-shrink:0">${_catsEditing?'Done':'Edit'}</button>
+    </div>
+    ${cards || '<div class="card"><div class="empty">No spending tracked yet this period</div></div>'}
+    ${_catsEditing ? `
+    <div class="card" style="margin-top:8px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
         <span style="font-size:13px">Budget alerts</span>
         <select onchange="updateSetting('budgetAlerts', this.value==='on')" style="width:auto;padding:6px 10px;font-size:13px">
           <option value="on"  ${s.budgetAlerts!==false?'selected':''}>On</option>
           <option value="off" ${s.budgetAlerts===false?'selected':''}>Off</option>
         </select>
       </div>
-      <div style="font-size:12px;color:var(--muted);margin-bottom:12px">Monthly amounts are divided by pay frequency each period. Leftover carries forward.</div>
-      ${catRows}
-      <button class="add-btn" onclick="addCat()">+ Add Category</button>
-    </div>` : '';
-  return `
-    <div class="page-header" style="display:flex;align-items:flex-start;justify-content:space-between">
-      <div><h1>Budgets</h1><p>Leftover rolls over each period</p></div>
-      <button onclick="toggleCatsEdit()" style="background:none;border:1px solid var(--border);color:${_catsEditing?'var(--green)':'var(--muted)'};border-radius:8px;padding:6px 14px;font-size:13px;cursor:pointer;margin-top:4px;flex-shrink:0">${_catsEditing?'Done':'Edit'}</button>
-    </div>
-    ${cards || '<div class="card"><div class="empty">No spending tracked yet this period</div></div>'}
-    ${editSection}`;
+    </div>` : ''}
+    ${addBtn}`;
 }
 // ── ADD EXPENSE ───────────────────────────────────────────────────────────
 function renderLog() {
@@ -1483,7 +1534,13 @@ function updateSetting(key, val) {
   }
   save(); toast('Saved');
 }
-function toggleCatsEdit() { _catsEditing = !_catsEditing; render(); }
+function toggleCatsEdit() { _catsEditing = !_catsEditing; _catEditKey = null; render(); }
+function openCatEdit(k) { _catEditKey = _catEditKey === k ? null : k; render(); }
+function setCatPerPeriod(k, val) {
+  const ppm = S.settings.payFreq === 'weekly' ? 4 : S.settings.payFreq === 'monthly' ? 1 : 2;
+  S.settings.cats[k].monthly = parseFloat(((parseFloat(val) || 0) * ppm).toFixed(2));
+  save();
+}
 function updateCat(k, field, val) {
   if (field === 'monthly') S.settings.cats[k][field] = parseFloat(val) || 0;
   else S.settings.cats[k][field] = val;
@@ -1496,7 +1553,7 @@ function addCat() {
 }
 function delCat(k) {
   if (!confirm('Delete this category? Associated history items will lose their mapped color.')) return;
-  delete S.settings.cats[k]; save(); render();
+  delete S.settings.cats[k]; _catEditKey = null; save(); render();
 }
 function updateFixed(idx, field, val) {
   if (field === 'monthly')    S.settings.fixedCosts[idx][field] = parseFloat(val) || 0;
