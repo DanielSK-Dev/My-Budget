@@ -243,6 +243,24 @@ details[open] > summary .summary-chevron {
     transition: none !important;
   }
 }
+/* ── Feature additions v1.7.0 ── */
+.exp-note{font-size:11px;color:var(--muted);font-style:italic;margin-top:1px;font-family:var(--font)}
+.planned-row{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border)}
+.planned-row:last-child{border-bottom:none}
+.planned-name{flex:1;font-size:13px;color:var(--muted)}
+.planned-amt{font-size:13px;font-family:var(--font-mono);color:var(--amber)}
+.planned-confirm{background:none;border:1px solid var(--green);color:var(--green);border-radius:6px;font-size:12px;padding:3px 8px;cursor:pointer;flex-shrink:0}
+.planned-confirm:active{background:var(--green-dim)}
+.ins-compare-row{display:flex;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px}
+.ins-compare-row:last-child{border-bottom:none}
+.ins-compare-label{flex:1;color:var(--muted)}
+.ins-compare-val{width:80px;text-align:right;font-family:var(--font-mono);font-size:13px}
+.ins-compare-delta{width:55px;text-align:right;font-family:var(--font-mono);font-size:11px}
+.ins-trend-row{display:flex;align-items:center;gap:8px;padding:5px 0}
+.ins-trend-name{font-size:12px;color:var(--muted);width:90px;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ins-trend-track{flex:1;height:6px;background:var(--surface2);border-radius:3px;overflow:hidden}
+.ins-trend-fill{height:100%;border-radius:3px}
+.ins-trend-amt{font-size:12px;font-family:var(--font-mono);min-width:60px;text-align:right}
 </style>
 </head>
 <body>
@@ -269,12 +287,16 @@ details[open] > summary .summary-chevron {
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
       Settings
     </button>
+    <button class="nav-btn" data-tab="insights" onclick="switchTab('insights')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+      Insights
+    </button>
   </nav>
 </div>
 <div id="toast"></div>
 <script>
 // ── VERSION ───────────────────────────────────────────────────────────────
-const APP_VERSION = '1.6.1';
+const APP_VERSION = '1.7.0';
 // ── DEFAULTS ──────────────────────────────────────────────────────────────
 const DEFAULT_CATS = {
   groceries: {label:'Groceries',     color:'#00c97a', monthly:200},
@@ -313,11 +335,13 @@ let S = {
     fixedCosts: [...DEFAULT_FIXED],
     quickAdds:  [...DEFAULT_QUICK],
     breakdown:  [...DEFAULT_BREAKDOWN],  // ordered list of stat IDs shown on Period tab
+    budgetAlerts: true,
   }
 };
-let _autoRollMsg = null;  // set by checkAutoRollover, shown after render
-let _histEdit    = null;  // {pid, ei} — which history expense is being edited
-let _histAdd     = null;  // pid — which period is showing the inline add form
+let _autoRollMsg    = null;  // set by checkAutoRollover, shown after render
+let _histEdit       = null;  // {pid, ei} — which history expense is being edited
+let _histAdd        = null;  // pid — which period is showing the inline add form
+let _catSuggestTimer = null; // debounce handle for smart categorization
 // ── LOAD / SAVE ───────────────────────────────────────────────────────────
 function load() {
   try {
@@ -348,6 +372,8 @@ function load() {
         if (!q.color)   q.color   = S.settings.cats[q.cat]?.color || '#555555';
       });
     }
+    if (typeof S.settings.budgetAlerts === 'undefined') S.settings.budgetAlerts = true;
+    if (S.currentPeriod && !Array.isArray(S.currentPeriod.planned)) S.currentPeriod.planned = [];
   } catch(e) {}
   checkAutoRollover();
   // Re-sync carryovers in case past expenses were edited while the app was closed
@@ -664,6 +690,7 @@ function checkAutoRollover() {
       income: 0, expenses: [], carryover: carry,
       tithePaid: !!S.settings.titheAutoPaid,
       fixedPaid: {},
+      planned: [],
     };
     save();
     _autoRollMsg = 'New pay period started — budget carried over';
@@ -746,6 +773,7 @@ function newPeriodObj(isoDate, carry) {
     // Auto setting decides whether the new period starts with giving already paid
     tithePaid: !!S.settings.titheAutoPaid,
     fixedPaid: {},  // per-fixed-cost paid override map (id → true|false)
+    planned: [],
   };
 }
 // ── ROUTING ───────────────────────────────────────────────────────────────
@@ -758,10 +786,11 @@ function switchTab(t) {
 }
 function render() {
   document.getElementById('screen').innerHTML =
-    TAB === 'home'     ? renderHome()
-    : TAB === 'cats'   ? renderCats()
-    : TAB === 'log'    ? renderLog()
-    : TAB === 'history'? renderHistory()
+    TAB === 'home'      ? renderHome()
+    : TAB === 'cats'    ? renderCats()
+    : TAB === 'log'     ? renderLog()
+    : TAB === 'history' ? renderHistory()
+    : TAB === 'insights'? renderInsights()
     : renderSettings();
   if (_autoRollMsg) {
     const msg = _autoRollMsg; _autoRollMsg = null;
@@ -797,7 +826,7 @@ function renderHome() {
           <div class="pip" style="background:${c.color};height:32px"></div>
           <div class="exp-info">
             <div class="exp-name">${e.name}</div>
-            <div class="exp-meta">${c.label} · ${e.date}</div>
+            <div class="exp-meta">${c.label} · ${e.date}${e.note ? `<div class="exp-note">${e.note}</div>` : ''}</div>
           </div>
           <div class="exp-amt">${fmt(e.amount)}</div>
           <button class="del" onclick="delExp(${idx})">×</button>
@@ -836,6 +865,19 @@ function renderHome() {
     </div>`;
   }).join('');
   const titheBtn = `<button onclick="toggleTithe()" style="background:none;border:1px solid ${cp.tithePaid?'var(--green)':'var(--border)'};color:${cp.tithePaid?'var(--green)':'var(--muted)'};border-radius:4px;padding:2px 6px;font-size:10px;cursor:pointer;margin-left:6px;font-family:var(--font);transition:all 0.15s">${cp.tithePaid ? '✓ Paid' : 'Mark paid'}</button>`;
+  const planned = cp.planned || [];
+  const plannedTotal = planned.reduce((a,x) => a + parseFloat(x.amount||0), 0);
+  const projInvest   = remaining - plannedTotal;
+  const plannedRows  = planned.map(x => {
+    const pc = S.settings.cats[x.cat] || {color:'#555'};
+    return `<div class="planned-row">
+      <div class="pip" style="background:${pc.color};height:22px"></div>
+      <div class="planned-name">${x.name}</div>
+      <div class="planned-amt">−${fmt(x.amount)}</div>
+      <button class="planned-confirm" onclick="confirmPlanned('${x.id}')" title="Move to expenses">✓ Paid</button>
+      <button class="del" onclick="delPlanned('${x.id}')">×</button>
+    </div>`;
+  }).join('');
   return `
     <div class="page-header"><h1>Budget</h1></div>
     <div class="period-strip">
@@ -883,6 +925,17 @@ function renderHome() {
       <div class="card-label">Variable expenses</div>
       ${expRows}
       <button class="btn btn-ghost" onclick="switchTab('log')" style="margin-top:${exps.length>0?'12':'0'}px">+ Add expense</button>
+    </div>
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <div class="card-label" style="margin-bottom:0">Planned / upcoming</div>
+        <button class="hist-add-btn" onclick="switchTab('log')">＋ Plan</button>
+      </div>
+      ${plannedRows || '<div class="empty" style="padding:8px 0">No planned expenses</div>'}
+      ${planned.length ? `<div class="sum-row" style="margin-top:8px;border-top:1px solid var(--border);padding-top:10px">
+        <span class="sum-label">Projected investable</span>
+        <span class="sum-val" style="color:${projInvest<0?'var(--red)':'var(--green)'}">${projInvest<0?'−':''}${fmt(projInvest)}</span>
+      </div>` : ''}
     </div>`;
 }
 // ── CATEGORY BUDGETS ──────────────────────────────────────────────────────
@@ -918,7 +971,7 @@ function renderCats() {
         <span class="hist-exp-date">${e.date||''}</span>
         <span class="hist-exp-name">${e.name}</span>
         <span class="hist-exp-amt">${fmt(e.amount)}</span>
-      </div>`).join('');
+      </div>${e.note ? `<div style="padding:0 0 4px 52px;font-size:11px;color:var(--muted);font-style:italic">${e.note}</div>` : ''}`).join('');
     const expsHtml = (debtRow || expRows)
       ? debtRow + expRows
       : '<div style="padding:8px 0;color:var(--muted);font-size:12px">No transactions yet.</div>';
@@ -961,18 +1014,30 @@ function renderLog() {
       <button class="quick-btn" onclick="quickAdd(${i})">+ Add</button>
     </div>`;
   }).join('');
+  const planCatOpts = Object.entries(S.settings.cats).map(([k,c]) => `<option value="${k}">${c.label}</option>`).join('');
   return `
     <div class="page-header"><h1>Add expense</h1></div>
     <div class="card">
-      <div class="field"><label>Description</label><input type="text" id="exp-name" placeholder="What did you buy?" maxlength="60"/></div>
+      <div class="field"><label>Description</label><input type="text" id="exp-name" placeholder="What did you buy?" maxlength="60" oninput="suggestCat(this.value)"/></div>
       <div class="row-fields">
         <div class="field"><label>Amount ($)</label><input type="number" id="exp-amt" placeholder="0.00" inputmode="decimal" min="0" step="0.01"/></div>
         <div class="field"><label>Category</label><select id="exp-cat">${catOpts}</select></div>
       </div>
+      <div class="field"><label>Note (optional)</label><input type="text" id="exp-note" placeholder="e.g. reimbursable, one-time…" maxlength="100"/></div>
       <button class="btn btn-primary" onclick="addExpense()">Add to this period</button>
     </div>
     <div class="sec-div">Quick add</div>
-    <div class="card">${quickRows || '<div class="empty" style="padding:10px 0">No quick adds setup</div>'}</div>`;
+    <div class="card">${quickRows || '<div class="empty" style="padding:10px 0">No quick adds setup</div>'}</div>
+    <div class="sec-div">Plan future expense</div>
+    <div class="card">
+      <div style="font-size:12px;color:var(--muted);margin-bottom:12px">Planned items appear on the Period tab. Tap ✓ Paid to convert to an actual expense when you spend it.</div>
+      <div class="field"><label>Description</label><input type="text" id="plan-name" placeholder="Upcoming purchase…" maxlength="60"/></div>
+      <div class="row-fields">
+        <div class="field"><label>Amount ($)</label><input type="number" id="plan-amt" placeholder="0.00" inputmode="decimal" min="0" step="0.01"/></div>
+        <div class="field"><label>Category</label><select id="plan-cat">${planCatOpts}</select></div>
+      </div>
+      <button class="btn btn-ghost" onclick="addPlanned()">Add to plan</button>
+    </div>`;
 }
 // ── HISTORY ───────────────────────────────────────────────────────────────
 function buildCatSummaryHtml(period) {
@@ -1008,7 +1073,7 @@ function renderHistExpRow(pid, ei, e) {
     <span class="hist-exp-amt">${fmt(e.amount)}</span>
     <button class="hist-icon-btn"       onclick="startHistEdit('${pid}',${ei})" title="Edit">✎</button>
     <button class="hist-icon-btn del-icon" onclick="delHistExp('${pid}',${ei})"  title="Delete">×</button>
-  </div>`;
+  </div>${e.note ? `<div style="padding:0 0 4px 52px;font-size:11px;color:var(--muted);font-style:italic">${e.note}</div>` : ''}`;
 }
 function renderHistEditRow(pid, ei, e) {
   const catOpts = Object.entries(S.settings.cats).map(([k,c]) =>
@@ -1024,6 +1089,9 @@ function renderHistEditRow(pid, ei, e) {
       <input type="date" id="he-d-${pid}-${ei}" value="${dateVal}" style="flex:1"/>
       <button class="he-save"   onclick="saveHistExp('${pid}',${ei})">Save</button>
       <button class="he-cancel" onclick="cancelHistEdit()">✕</button>
+    </div>
+    <div style="margin-top:6px">
+      <input type="text" id="he-note-${pid}-${ei}" value="${(e.note||'').replace(/"/g,'&quot;')}" placeholder="Note (optional)" style="width:100%"/>
     </div>
   </div>`;
 }
@@ -1117,9 +1185,10 @@ function saveHistExp(pid, ei) {
   const amt     = parseFloat(document.getElementById(`he-a-${pid}-${ei}`)?.value);
   const cat     = document.getElementById(`he-c-${pid}-${ei}`)?.value;
   const dateISO = document.getElementById(`he-d-${pid}-${ei}`)?.value;
+  const note    = document.getElementById(`he-note-${pid}-${ei}`)?.value?.trim() || '';
   if (!name)           { toast('Enter a description'); return; }
   if (isNaN(amt)||amt<=0) { toast('Enter a valid amount'); return; }
-  period.expenses[ei] = {name, amount: amt, cat, date: isoToDisplay(dateISO), dateISO};
+  period.expenses[ei] = {name, amount: amt, cat, date: isoToDisplay(dateISO), dateISO, ...(note && {note})};
   _histEdit = null; recomputeCarryoverChain(); save(); render(); toast('Updated');
 }
 function delHistExp(pid, ei) {
@@ -1251,6 +1320,13 @@ function renderSettings() {
     <div class="card">
       <div class="card-label">Category Budgets</div>
       <div style="font-size:12px;color:var(--muted);margin-bottom:12px">Monthly amounts per category. Divided by pay frequency each period. Leftover carries forward.</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <span style="font-size:13px">Budget alerts</span>
+        <select onchange="updateSetting('budgetAlerts', this.value==='on')" style="width:auto;padding:6px 10px;font-size:13px">
+          <option value="on"  ${s.budgetAlerts!==false?'selected':''}>On</option>
+          <option value="off" ${s.budgetAlerts===false?'selected':''}>Off</option>
+        </select>
+      </div>
       ${catRows}
       <button class="add-btn" onclick="addCat()">+ Add Category</button>
     </div>
@@ -1316,6 +1392,7 @@ function renderSettings() {
     <div class="card">
       <div class="card-label">Data Management</div>
       <button class="btn btn-ghost" onclick="exportData()">Export Data (Backup)</button>
+      <button class="btn btn-ghost" onclick="exportCSV()">Export as CSV</button>
       <label class="btn btn-ghost" style="display:block;margin-top:8px;cursor:pointer;text-align:center">
         Import Data (Restore)
         <input type="file" style="display:none" accept=".json" onchange="importData(event)">
@@ -1401,6 +1478,155 @@ function delQuick(idx) {
   if (!confirm('Delete this quick shortcut?')) return;
   S.settings.quickAdds.splice(idx, 1); save(); render();
 }
+// ── BUDGET ALERTS ─────────────────────────────────────────────────────────
+function checkBudgetAlert(cat) {
+  if (!S.settings.budgetAlerts) return;
+  const budget = catBudget(cat);
+  if (budget <= 0) return;
+  const spent = catSpent(cat) + catDebt(cat);
+  const pct   = spent / budget * 100;
+  const label = S.settings.cats[cat]?.label || cat;
+  if (pct >= 100) setTimeout(() => toast(`⚠ ${label} is over budget`), 200);
+  else if (pct >= 80) setTimeout(() => toast(`${label} at ${Math.round(pct)}% of budget`), 200);
+}
+// ── SMART CATEGORIZATION ──────────────────────────────────────────────────
+function suggestCat(val) {
+  clearTimeout(_catSuggestTimer);
+  if (!val || val.length < 2) return;
+  _catSuggestTimer = setTimeout(() => {
+    const norm = val.trim().toLowerCase();
+    const prefix = norm.slice(0, 3);
+    const all = [
+      ...(S.history||[]).flatMap(p => p.expenses||[]),
+      ...(S.currentPeriod?.expenses||[]),
+    ];
+    const match = all.slice().reverse().find(e => {
+      const en = e.name.toLowerCase();
+      return en.startsWith(prefix) || norm.startsWith(en.slice(0, 3));
+    });
+    if (!match) return;
+    const sel = document.getElementById('exp-cat');
+    if (sel && sel.value !== match.cat && S.settings.cats[match.cat]) {
+      sel.value = match.cat;
+      sel.style.borderColor = 'var(--green)';
+      setTimeout(() => { if (sel) sel.style.borderColor = ''; }, 600);
+    }
+  }, 350);
+}
+// ── PLANNED EXPENSES ──────────────────────────────────────────────────────
+function addPlanned() {
+  const name = document.getElementById('plan-name')?.value?.trim();
+  const amt  = parseFloat(document.getElementById('plan-amt')?.value);
+  const cat  = document.getElementById('plan-cat')?.value;
+  if (!name) { toast('Enter a description'); return; }
+  if (isNaN(amt)||amt<=0) { toast('Enter a valid amount'); return; }
+  if (!S.currentPeriod) { toast('No active period'); return; }
+  if (!Array.isArray(S.currentPeriod.planned)) S.currentPeriod.planned = [];
+  S.currentPeriod.planned.push({id: genId('pl'), name, amount: amt, cat});
+  save(); toast(`Planned: ${name}`); switchTab('home');
+}
+function delPlanned(id) {
+  if (!S.currentPeriod) return;
+  S.currentPeriod.planned = (S.currentPeriod.planned||[]).filter(x => x.id !== id);
+  save(); render();
+}
+function confirmPlanned(id) {
+  if (!S.currentPeriod) return;
+  const item = (S.currentPeriod.planned||[]).find(x => x.id === id);
+  if (!item) return;
+  S.currentPeriod.expenses.push({name: item.name, amount: item.amount, cat: item.cat, date: todayStr(), dateISO: todayISO()});
+  S.currentPeriod.planned = S.currentPeriod.planned.filter(x => x.id !== id);
+  save(); render(); toast(`Marked paid: ${item.name}`);
+}
+// ── CSV EXPORT ────────────────────────────────────────────────────────────
+function exportCSV() {
+  const rows = [['Period Start','Date','Description','Category','Amount','Note']];
+  const periods = [...(S.history||[]), S.currentPeriod].filter(Boolean);
+  periods.forEach(p => {
+    (p.expenses||[]).forEach(e => {
+      const cat = S.settings.cats[e.cat]?.label || e.cat;
+      rows.push([p.startDate, e.date||'', e.name, cat, (parseFloat(e.amount)||0).toFixed(2), e.note||'']);
+    });
+  });
+  const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv], {type:'text/csv'}));
+  a.download = `budget_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+}
+// ── INSIGHTS ──────────────────────────────────────────────────────────────
+function renderInsights() {
+  const all  = [...(S.history||[]), S.currentPeriod].filter(Boolean);
+  const cur  = S.currentPeriod;
+  const prev = S.history.length > 0 ? S.history[S.history.length - 1] : null;
+
+  const pIncome = p => parseFloat(p.income||0);
+  const pFixed  = p => fixedForPeriod(p);
+  const pTithe  = p => titheAmt(pIncome(p));
+  const pVar    = p => (p.expenses||[]).reduce((a,e) => a + parseFloat(e.amount), 0);
+  const pInvest = p => pIncome(p) - pFixed(p) - pTithe(p) - pVar(p);
+  const pRate   = p => pIncome(p) > 0 ? Math.round(pInvest(p) / pIncome(p) * 100) : 0;
+
+  // ── Period comparison ──────────────────────────────────────────────────
+  let compareHtml = '<div class="empty">Need at least 2 periods for comparison</div>';
+  if (cur && prev) {
+    const cmpRow = (label, curVal, prevVal, fmtFn = fmt) => {
+      const delta = curVal - prevVal;
+      const sign  = delta > 0 ? '+' : '';
+      const col   = delta > 0 ? 'var(--green)' : delta < 0 ? 'var(--red)' : 'var(--muted)';
+      return `<div class="ins-compare-row">
+        <span class="ins-compare-label">${label}</span>
+        <span class="ins-compare-val">${fmtFn(curVal)}</span>
+        <span class="ins-compare-val" style="color:var(--muted)">${fmtFn(prevVal)}</span>
+        <span class="ins-compare-delta" style="color:${col}">${delta !== 0 ? sign + fmtFn(Math.abs(delta)) : '—'}</span>
+      </div>`;
+    };
+    compareHtml = `
+      <div class="ins-compare-row" style="padding-bottom:6px;margin-bottom:2px">
+        <span class="ins-compare-label" style="color:var(--muted);font-size:10px;font-family:var(--font-mono);text-transform:uppercase;letter-spacing:.06em">Metric</span>
+        <span class="ins-compare-val"   style="color:var(--muted);font-size:10px;font-family:var(--font-mono);text-transform:uppercase;letter-spacing:.06em">This</span>
+        <span class="ins-compare-val"   style="color:var(--muted);font-size:10px;font-family:var(--font-mono);text-transform:uppercase;letter-spacing:.06em">Last</span>
+        <span class="ins-compare-delta" style="color:var(--muted);font-size:10px;font-family:var(--font-mono);text-transform:uppercase;letter-spacing:.06em">Δ</span>
+      </div>
+      ${cmpRow('Income',     pIncome(cur),  pIncome(prev))}
+      ${cmpRow('Fixed',      pFixed(cur),   pFixed(prev))}
+      ${cmpRow('Giving',     pTithe(cur),   pTithe(prev))}
+      ${cmpRow('Variable',   pVar(cur),     pVar(prev))}
+      ${cmpRow('Investable', pInvest(cur),  pInvest(prev))}
+      ${cmpRow('Savings %',  pRate(cur),    pRate(prev), n => n + '%')}`;
+  }
+
+  // ── Spending trends — avg per category, last 6 periods ────────────────
+  const recent = all.slice(-6);
+  const avgByCat = {};
+  Object.keys(S.settings.cats).forEach(k => {
+    const total = recent.reduce((a, p) =>
+      a + (p.expenses||[]).filter(e => e.cat === k).reduce((b, e) => b + parseFloat(e.amount), 0), 0);
+    if (total > 0) avgByCat[k] = total / recent.length;
+  });
+  const catEntries = Object.entries(avgByCat).sort((a, b) => b[1] - a[1]);
+  const maxAvg = catEntries[0]?.[1] || 1;
+  const trendRows = catEntries.map(([k, avg]) => {
+    const c = S.settings.cats[k];
+    return `<div class="ins-trend-row">
+      <div class="ins-trend-name">${c.label}</div>
+      <div class="ins-trend-track"><div class="ins-trend-fill" style="width:${Math.round(avg/maxAvg*100)}%;background:${c.color}"></div></div>
+      <div class="ins-trend-amt">${fmt(avg)}/pd</div>
+    </div>`;
+  }).join('') || '<div class="empty">Not enough data yet</div>';
+
+  return `
+    <div class="page-header"><h1>Insights</h1><p>Trends &amp; period comparison</p></div>
+    <div class="card">
+      <div class="card-label">Period comparison — This vs Last</div>
+      ${compareHtml}
+    </div>
+    <div class="card">
+      <div class="card-label">Avg spending per category</div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:12px">Average per pay period across last ${recent.length} period${recent.length!==1?'s':''}</div>
+      ${trendRows}
+    </div>`;
+}
 // ── PERIOD ACTIONS ────────────────────────────────────────────────────────
 function setIncome(v) {
   if (!S.currentPeriod) return;
@@ -1441,6 +1667,7 @@ function addExpense() {
   const name = document.getElementById('exp-name')?.value?.trim();
   const amt  = parseFloat(document.getElementById('exp-amt')?.value);
   const cat  = document.getElementById('exp-cat')?.value;
+  const note = document.getElementById('exp-note')?.value?.trim() || '';
   if (!name)           { toast('Enter a description'); return; }
   if (isNaN(amt)||amt<=0) { toast('Enter a valid amount'); return; }
   if (!S.currentPeriod) {
@@ -1448,10 +1675,13 @@ function addExpense() {
     const most = getMostRecentPayday();
     S.currentPeriod = newPeriodObj(most ? most.toISOString().slice(0,10) : todayISO(), {});
   }
-  S.currentPeriod.expenses.push({name, amount: amt, cat, date: todayStr(), dateISO: todayISO()});
+  S.currentPeriod.expenses.push({name, amount: amt, cat, date: todayStr(), dateISO: todayISO(), ...(note && {note})});
   save(); toast(`Added: ${name}`);
+  checkBudgetAlert(cat);
   document.getElementById('exp-name').value = '';
   document.getElementById('exp-amt').value  = '';
+  const noteEl = document.getElementById('exp-note');
+  if (noteEl) noteEl.value = '';
   switchTab('home');
 }
 function quickAdd(i) {
@@ -1462,7 +1692,9 @@ function quickAdd(i) {
     S.currentPeriod = newPeriodObj(most ? most.toISOString().slice(0,10) : todayISO(), {});
   }
   S.currentPeriod.expenses.push({name: q.name, amount: calcQuickAmt(q), cat: q.cat, date: todayStr(), dateISO: todayISO()});
-  save(); toast(`Added: ${q.name}`); switchTab('home');
+  save(); toast(`Added: ${q.name}`);
+  checkBudgetAlert(q.cat);
+  switchTab('home');
 }
 // ── DATA MANAGEMENT ───────────────────────────────────────────────────────
 function exportData() {
@@ -1493,7 +1725,7 @@ function resetAll() {
     currentPeriod: null, history: [],
     settings: {tithe: 10, titheAutoPaid: false, payFreq: 'biweekly', lastPayday: '',
       cats: {...DEFAULT_CATS}, fixedCosts: [...DEFAULT_FIXED], quickAdds: [...DEFAULT_QUICK],
-      breakdown: [...DEFAULT_BREAKDOWN]}
+      breakdown: [...DEFAULT_BREAKDOWN], budgetAlerts: true}
   };
   save(); render(); toast('All data cleared');
 }
