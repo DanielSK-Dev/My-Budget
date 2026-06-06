@@ -338,6 +338,7 @@ let _autoRollMsg    = null;  // set by checkAutoRollover, shown after render
 let _histEdit       = null;  // {pid, ei} — which history expense is being edited
 let _histAdd        = null;  // pid — which period is showing the inline add form
 let _catSuggestTimer = null; // debounce handle for smart categorization
+let _catsEditing    = false; // toggles budget edit mode on Budgets tab
 // ── LOAD / SAVE ───────────────────────────────────────────────────────────
 function load() {
   try {
@@ -777,7 +778,7 @@ function newPeriodObj(isoDate, carry) {
 let TAB = 'home';
 function switchTab(t) {
   TAB = t;
-  _histEdit = null; _histAdd = null;
+  _histEdit = null; _histAdd = null; _catsEditing = false;
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === t));
   render();
 }
@@ -1015,10 +1016,8 @@ function renderCats() {
       <input type="number" class="input-num" value="${c.monthly||0}" placeholder="0" inputmode="decimal" min="0" step="1" onchange="updateCat('${k}','monthly',this.value)"/>
       <button class="del-btn" onclick="delCat('${k}')">×</button>
     </div>`).join('');
-  return `
-    <div class="page-header"><h1>Budgets</h1><p>Leftover rolls over each period</p></div>
-    ${cards || '<div class="card"><div class="empty">No spending tracked yet this period</div></div>'}
-    <div class="sec-div">Manage budgets</div>
+  const editSection = _catsEditing ? `
+    <div class="sec-div" style="margin-top:8px">Edit budgets</div>
     <div class="card">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
         <span style="font-size:13px">Budget alerts</span>
@@ -1030,7 +1029,14 @@ function renderCats() {
       <div style="font-size:12px;color:var(--muted);margin-bottom:12px">Monthly amounts are divided by pay frequency each period. Leftover carries forward.</div>
       ${catRows}
       <button class="add-btn" onclick="addCat()">+ Add Category</button>
-    </div>`;
+    </div>` : '';
+  return `
+    <div class="page-header" style="display:flex;align-items:flex-start;justify-content:space-between">
+      <div><h1>Budgets</h1><p>Leftover rolls over each period</p></div>
+      <button onclick="toggleCatsEdit()" style="background:none;border:1px solid var(--border);color:${_catsEditing?'var(--green)':'var(--muted)'};border-radius:8px;padding:6px 14px;font-size:13px;cursor:pointer;margin-top:4px;flex-shrink:0">${_catsEditing?'Done':'Edit'}</button>
+    </div>
+    ${cards || '<div class="card"><div class="empty">No spending tracked yet this period</div></div>'}
+    ${editSection}`;
 }
 // ── ADD EXPENSE ───────────────────────────────────────────────────────────
 function renderLog() {
@@ -1477,6 +1483,7 @@ function updateSetting(key, val) {
   }
   save(); toast('Saved');
 }
+function toggleCatsEdit() { _catsEditing = !_catsEditing; render(); }
 function updateCat(k, field, val) {
   if (field === 'monthly') S.settings.cats[k][field] = parseFloat(val) || 0;
   else S.settings.cats[k][field] = val;
