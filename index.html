@@ -356,7 +356,8 @@ function load() {
     S.settings.fixedCosts.forEach(f => {
       if (!f.billingType) f.billingType = 'split';
       if (typeof f.billingDay === 'undefined') f.billingDay = 1;
-      if (!f.id) f.id = genId('fc');   // backfill IDs for legacy entries
+      if (!f.id) f.id = genId('fc');
+      if (typeof f.cat === 'undefined') f.cat = '';
     });
     if (!S.settings.breakdown || !S.settings.breakdown.length)
       S.settings.breakdown = [...DEFAULT_BREAKDOWN];
@@ -852,10 +853,11 @@ function renderHome() {
       tag = `<span class="fixed-tag pending">pending</span>`;
     }
     const amtColor = isPaid ? 'var(--muted)' : (affectsPeriod ? 'var(--red)' : 'var(--muted)');
+    const catLabel = f.cat && S.settings.cats[f.cat] ? `<span style="font-size:10px;font-family:var(--font-mono);color:var(--muted);margin-left:5px;opacity:.8">${S.settings.cats[f.cat].label}</span>` : '';
     return `<div class="fixed-row${isPaid ? ' paid' : ''}">
       <input type="checkbox" class="fixed-check" ${isPaid?'checked':''} onchange="toggleFixedPaid(${i})" aria-label="Mark ${f.name} paid"/>
       <div class="pip" style="background:${f.color||'#555'};height:22px"></div>
-      <div class="fixed-name">${f.name}${tag}</div>
+      <div class="fixed-name">${f.name}${catLabel}${tag}</div>
       <div class="fixed-amt" style="color:${amtColor}">−${fmt(displayAmt)}</div>
     </div>`;
   }).join('');
@@ -912,36 +914,50 @@ function renderHome() {
       </div>
     </div>
     <div class="card">
-      <div class="card-label">Fixed costs this period</div>
-      ${fixedRows || '<div class="empty" style="padding:10px 0">No fixed costs</div>'}
-      <div style="font-size:10px;color:var(--muted);font-family:var(--font-mono);margin-top:10px;padding-top:8px;border-top:1px solid var(--border)">Tap the box to manually mark paid · auto-marks once the billing day passes</div>
-    </div>
-    <div class="card">
       <div class="card-label">Variable expenses</div>
       ${expRows}
       <button class="btn btn-ghost" onclick="switchTab('log')" style="margin-top:${exps.length>0?'12':'0'}px">+ Add expense</button>
     </div>
     <div class="card">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-        <div class="card-label" style="margin-bottom:0">Planned / upcoming</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <div class="card-label" style="margin-bottom:0">Upcoming</div>
         <button class="hist-add-btn" onclick="switchTab('log')">＋ Plan</button>
       </div>
-      ${plannedRows || '<div class="empty" style="padding:8px 0">No planned expenses</div>'}
-      ${planned.length ? `<div class="sum-row" style="margin-top:8px;border-top:1px solid var(--border);padding-top:10px">
+      ${fixedRows ? `<div style="font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);font-family:var(--font-mono);margin-bottom:6px">Subscriptions</div>
+      ${fixedRows}
+      <div style="font-size:10px;color:var(--muted);font-family:var(--font-mono);margin-top:8px;padding-bottom:${planned.length?'10':'0'}px;${planned.length?'border-bottom:1px solid var(--border)':''}">Tap box to mark paid · auto-marks once billing day passes</div>` : ''}
+      ${planned.length ? `<div style="font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);font-family:var(--font-mono);margin:${fixedRows?'10':'0'}px 0 6px">Planned</div>
+      ${plannedRows}
+      <div class="sum-row" style="margin-top:8px;border-top:1px solid var(--border);padding-top:10px">
         <span class="sum-label">Projected investable</span>
         <span class="sum-val" style="color:${projInvest<0?'var(--red)':'var(--green)'}">${projInvest<0?'−':''}${fmt(projInvest)}</span>
       </div>` : ''}
-    </div>`;
+      ${!fixedRows && !planned.length ? '<div class="empty" style="padding:8px 0">No upcoming items · add subscriptions in Settings</div>' : ''}
+    </div>
+    <details style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:16px;margin-bottom:12px">
+      <summary style="display:flex;justify-content:space-between;align-items:center;outline:none;cursor:pointer">
+        <div class="card-label" style="margin-bottom:0">Customize layout</div>
+        <span class="summary-chevron">▾</span>
+      </summary>
+      <div style="margin-top:12px;font-size:12px;color:var(--muted);margin-bottom:12px">Drag to reorder the breakdown card. Use + / × to show or hide stats.</div>
+      ${(()=>{
+        const eo = Array.isArray(S.settings.breakdown) ? S.settings.breakdown : DEFAULT_BREAKDOWN;
+        const abs = [...Object.entries(BUILTIN_BREAKDOWN_LABELS).map(([id,label])=>({id,label,group:'built-in'})),...(S.settings.fixedCosts||[]).map(f=>({id:'sub:'+f.id,label:f.name,group:'subscription'}))];
+        const lbl = id => { const m=abs.find(x=>x.id===id); return m?m.label:id; };
+        const enRows = eo.map((id,i)=>`<div class="bd-row" data-bd-idx="${i}"><div class="bd-drag" onpointerdown="bdDragStart(event,${i})" title="Drag to reorder"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><line x1="2" y1="4" x2="12" y2="4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="2" y1="7" x2="12" y2="7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="2" y1="10" x2="12" y2="10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></div><div class="bd-name">${lbl(id)}</div><button class="bd-btn bd-rm" onclick="removeBreakdown('${id}')" title="Remove">×</button></div>`).join('');
+        const dis = abs.filter(x=>!eo.includes(x.id));
+        const disRows = dis.map(stat=>`<div class="bd-row dimmed"><div class="bd-name">${stat.label}${stat.group==='subscription'?'<span style="font-size:10px;color:var(--muted);font-family:var(--font-mono);margin-left:4px">sub</span>':''}</div><button class="bd-add-btn" onclick="addBreakdown('${stat.id}')">+ Add</button></div>`).join('');
+        return (enRows||'<div class="empty" style="padding:8px 0">No stats</div>') + (dis.length?`<div class="bd-section-label">Available</div>${disRows}`:'');
+      })()}
+    </details>`;
 }
 // ── CATEGORY BUDGETS ──────────────────────────────────────────────────────
 function renderCats() {
   const cats       = S.settings.cats;
+  const s          = S.settings;
   const visibleCats = Object.entries(cats).filter(([k,c]) =>
     (c.monthly||0) > 0 || catSpent(k) > 0 || (S.currentPeriod?.carryover?.[k]||0) !== 0
   );
-  if (!visibleCats.length) return `
-    <div class="page-header"><h1>Budgets</h1><p>Per-category spending tracker</p></div>
-    <div class="card"><div class="empty">Set monthly budgets in Settings to see tracking here</div></div>`;
   const cards = visibleCats.map(([k,c]) => {
     const budget   = catBudget(k);            // base + positive carry only
     const debt     = catDebt(k);              // absolute debt from last period
@@ -992,7 +1008,29 @@ function renderCats() {
       </div>
     </details>`;
   }).join('');
-  return `<div class="page-header"><h1>Budgets</h1><p>Leftover rolls over each period</p></div>${cards}`;
+  const catRows = Object.entries(s.cats).map(([k,c]) => `
+    <div class="be-row">
+      <input type="color" class="color-picker" value="${c.color}" onchange="updateCat('${k}','color',this.value)" />
+      <input type="text" class="input-name" value="${c.label}" placeholder="Category" onchange="updateCat('${k}','label',this.value)" />
+      <input type="number" class="input-num" value="${c.monthly||0}" placeholder="0" inputmode="decimal" min="0" step="1" onchange="updateCat('${k}','monthly',this.value)"/>
+      <button class="del-btn" onclick="delCat('${k}')">×</button>
+    </div>`).join('');
+  return `
+    <div class="page-header"><h1>Budgets</h1><p>Leftover rolls over each period</p></div>
+    ${cards || '<div class="card"><div class="empty">No spending tracked yet this period</div></div>'}
+    <div class="sec-div">Manage budgets</div>
+    <div class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <span style="font-size:13px">Budget alerts</span>
+        <select onchange="updateSetting('budgetAlerts', this.value==='on')" style="width:auto;padding:6px 10px;font-size:13px">
+          <option value="on"  ${s.budgetAlerts!==false?'selected':''}>On</option>
+          <option value="off" ${s.budgetAlerts===false?'selected':''}>Off</option>
+        </select>
+      </div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:12px">Monthly amounts are divided by pay frequency each period. Leftover carries forward.</div>
+      ${catRows}
+      <button class="add-btn" onclick="addCat()">+ Add Category</button>
+    </div>`;
 }
 // ── ADD EXPENSE ───────────────────────────────────────────────────────────
 function renderLog() {
@@ -1010,6 +1048,26 @@ function renderLog() {
     </div>`;
   }).join('');
   const planCatOpts = Object.entries(S.settings.cats).map(([k,c]) => `<option value="${k}">${c.label}</option>`).join('');
+  const s = S.settings;
+  const quickEditRows = (s.quickAdds || []).map((q, i) => `
+    <div class="quick-edit-row">
+      <div class="qe-top">
+        <input type="color" class="color-picker" value="${q.color||'#555555'}" onchange="updateQuick(${i},'color',this.value)" />
+        <input type="text" value="${q.name}" placeholder="Name" style="flex:1" onchange="updateQuick(${i},'name',this.value)" />
+        <button class="del-btn" onclick="delQuick(${i})">×</button>
+      </div>
+      <div class="qe-bot">
+        <input type="number" value="${q.amount}" placeholder="Amt" style="width:70px" inputmode="decimal" min="0" step="0.01" onchange="updateQuick(${i},'amount',this.value)"/>
+        <select style="flex:1" onchange="updateQuick(${i},'amtType',this.value)">
+          <option value="fixed"      ${q.amtType==='fixed'?'selected':''}>$ Fixed</option>
+          <option value="pct_income" ${q.amtType==='pct_income'?'selected':''}>% Income</option>
+          <option value="pct_budget" ${q.amtType==='pct_budget'?'selected':''}>% Budget</option>
+        </select>
+        <select style="flex:1" onchange="updateQuick(${i},'cat',this.value)">
+          ${Object.entries(s.cats).map(([k,c]) => `<option value="${k}" ${q.cat===k?'selected':''}>${c.label}</option>`).join('')}
+        </select>
+      </div>
+    </div>`).join('');
   return `
     <div class="page-header"><h1>Add expense</h1></div>
     <div class="card">
@@ -1022,7 +1080,7 @@ function renderLog() {
       <button class="btn btn-primary" onclick="addExpense()">Add to this period</button>
     </div>
     <div class="sec-div">Quick add</div>
-    <div class="card">${quickRows || '<div class="empty" style="padding:10px 0">No quick adds setup</div>'}</div>
+    <div class="card">${quickRows || '<div class="empty" style="padding:10px 0">No quick adds — add one below</div>'}</div>
     <div class="sec-div">Plan future expense</div>
     <div class="card">
       <div style="font-size:12px;color:var(--muted);margin-bottom:12px">Planned items appear on the Period tab. Tap ✓ Paid to convert to an actual expense when you spend it.</div>
@@ -1032,6 +1090,12 @@ function renderLog() {
         <div class="field"><label>Category</label><select id="plan-cat">${planCatOpts}</select></div>
       </div>
       <button class="btn btn-ghost" onclick="addPlanned()">Add to plan</button>
+    </div>
+    <div class="sec-div">Manage quick adds</div>
+    <div class="card">
+      <div style="font-size:12px;color:var(--muted);margin-bottom:12px">Shortcuts that appear above. Choose Fixed $, % of Income, or % of Category Budget.</div>
+      ${quickEditRows}
+      <button class="add-btn" onclick="addQuick()">+ Add Quick Add</button>
     </div>`;
 }
 // ── HISTORY ───────────────────────────────────────────────────────────────
@@ -1183,9 +1247,10 @@ function renderHistory() {
     ? '<div class="empty">No periods yet</div>'
     : all.map(({p, pid}) => {
         const isCurrent = pid === 'current';
-        const inc = parseFloat(p.income||0);
-        const out = (p.expenses||[]).reduce((a,e) => a+parseFloat(e.amount), 0) + fixedForPeriod(p) + titheAmt(inc);
-        const sv  = inc - out;
+        const inc      = parseFloat(p.income||0);
+        const varSpent = (p.expenses||[]).reduce((a,e) => a+parseFloat(e.amount), 0);
+        const out      = varSpent + fixedForPeriod(p) + titheAmt(inc);
+        const sv       = inc - out;
         const rt  = inc > 0 ? Math.round(sv / inc * 100) : 0;
         const expItems = (p.expenses||[]).map((e, ei) => {
           if (_histEdit && _histEdit.pid === pid && _histEdit.ei === ei)
@@ -1200,7 +1265,7 @@ function renderHistory() {
             <summary style="display:flex;justify-content:space-between;align-items:center;outline:none;cursor:pointer;">
               <div>
                 <div style="font-size:14px;font-weight:500">${p.startDate}${isCurrent ? ' <span class="badge g" style="margin-left:4px">Current</span>' : ''}</div>
-                <div style="font-size:11px;color:var(--muted);font-family:var(--font-mono);margin-top:2px">${(p.expenses||[]).length} expenses · ${fmt(inc)} income</div>
+                <div style="font-size:11px;color:var(--muted);font-family:var(--font-mono);margin-top:2px">${(p.expenses||[]).length} expenses · ${fmt(inc)} income · ${fmt(varSpent)} spent</div>
               </div>
               <div style="display:flex;align-items:center;gap:8px">
                 <div style="text-align:right">
@@ -1288,20 +1353,11 @@ function saveHistAdd(pid) {
 function renderSettings() {
   const s = S.settings;
 
-  // ─ Category-budget rows ────────────────────────────────────────────────
-  const catRows = Object.entries(s.cats).map(([k,c]) => `
-    <div class="be-row">
-      <input type="color" class="color-picker" value="${c.color}" onchange="updateCat('${k}','color',this.value)" />
-      <input type="text" class="input-name" value="${c.label}" placeholder="Category" onchange="updateCat('${k}','label',this.value)" />
-      <input type="number" class="input-num" value="${c.monthly||0}" placeholder="0" inputmode="decimal" min="0" step="1" onchange="updateCat('${k}','monthly',this.value)"/>
-      <button class="del-btn" onclick="delCat('${k}')">×</button>
-    </div>`).join('');
-
-  // ─ Monthly subscription rows (formerly Fixed costs) ───────────────────
-  // The day-of-month input now lives on its own row when needed, so the
-  // "Specific day" select option always has full width to display.
+  // ─ Monthly subscription rows ─────────────────────────────────────────
   const fixedRows = (s.fixedCosts || []).map((f, i) => {
     const isDate = f.billingType === 'date';
+    const catOpts = `<option value="">Uncategorized</option>` +
+      Object.entries(s.cats).map(([k,c]) => `<option value="${k}" ${f.cat===k?'selected':''}>${c.label}</option>`).join('');
     return `<div class="fc-edit-row">
       <div class="fc-edit-top">
         <input type="color" class="color-picker" value="${f.color||'#888888'}" onchange="updateFixed(${i},'color',this.value)" />
@@ -1316,6 +1372,10 @@ function renderSettings() {
           <option value="date"  ${isDate ?'selected':''}>Specific day</option>
         </select>
       </div>
+      <div class="fc-edit-bot" style="margin-top:4px">
+        <span style="font-size:11px;color:var(--muted);flex-shrink:0">Category</span>
+        <select style="flex:1" onchange="updateFixed(${i},'cat',this.value)">${catOpts}</select>
+      </div>
       ${isDate ? `<div class="fc-edit-day">
         <span style="font-size:11px;color:var(--muted);flex-shrink:0">Day of month</span>
         <input type="number" class="fc-day" value="${f.billingDay||1}" min="1" max="31" inputmode="numeric" onchange="updateFixed(${i},'billingDay',this.value)" />
@@ -1323,84 +1383,10 @@ function renderSettings() {
     </div>`;
   }).join('');
 
-  // ─ Quick-add rows ──────────────────────────────────────────────────────
-  const quickAddRows = (s.quickAdds || []).map((q, i) => `
-    <div class="quick-edit-row">
-      <div class="qe-top">
-        <input type="color" class="color-picker" value="${q.color||'#555555'}" onchange="updateQuick(${i},'color',this.value)" />
-        <input type="text" value="${q.name}" placeholder="Name" style="flex:1" onchange="updateQuick(${i},'name',this.value)" />
-        <button class="del-btn" onclick="delQuick(${i})">×</button>
-      </div>
-      <div class="qe-bot">
-        <input type="number" value="${q.amount}" placeholder="Amt" style="width:70px" inputmode="decimal" min="0" step="0.01" onchange="updateQuick(${i},'amount',this.value)"/>
-        <select style="flex:1" onchange="updateQuick(${i},'amtType',this.value)">
-          <option value="fixed"      ${q.amtType==='fixed'?'selected':''}>$ Fixed</option>
-          <option value="pct_income" ${q.amtType==='pct_income'?'selected':''}>% Income</option>
-          <option value="pct_budget" ${q.amtType==='pct_budget'?'selected':''}>% Budget</option>
-        </select>
-        <select style="flex:1" onchange="updateQuick(${i},'cat',this.value)">
-          ${Object.entries(s.cats).map(([k,c]) => `<option value="${k}" ${q.cat===k?'selected':''}>${c.label}</option>`).join('')}
-        </select>
-      </div>
-    </div>`).join('');
-
-  // ─ Breakdown layout — list of stat IDs in user order, plus disabled ones ─
-  const enabledOrder = Array.isArray(s.breakdown) ? s.breakdown : DEFAULT_BREAKDOWN;
-  const allBreakdownStats = [
-    ...Object.entries(BUILTIN_BREAKDOWN_LABELS).map(([id, label]) => ({id, label, group:'built-in'})),
-    ...(s.fixedCosts || []).map(f => ({id:'sub:'+f.id, label:f.name, group:'subscription'})),
-  ];
-  const breakdownLabel = id => {
-    const m = allBreakdownStats.find(x => x.id === id);
-    return m ? m.label : id;
-  };
-  const enabledBdRows = enabledOrder.map((id, i) => `
-    <div class="bd-row" data-bd-idx="${i}">
-      <div class="bd-drag" onpointerdown="bdDragStart(event, ${i})" title="Drag to reorder">
-        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-          <line x1="2" y1="4"  x2="12" y2="4"  stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-          <line x1="2" y1="7"  x2="12" y2="7"  stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-          <line x1="2" y1="10" x2="12" y2="10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-        </svg>
-      </div>
-      <div class="bd-name">${breakdownLabel(id)}</div>
-      <button class="bd-btn bd-rm" onclick="removeBreakdown('${id}')" title="Remove">×</button>
-    </div>`).join('');
-  const disabledBd = allBreakdownStats.filter(s => !enabledOrder.includes(s.id));
-  const disabledBdRows = disabledBd.map(stat => `
-    <div class="bd-row dimmed">
-      <div class="bd-name">${stat.label}${stat.group==='subscription'?' <span style="font-size:10px;color:var(--muted);font-family:var(--font-mono);margin-left:4px">subscription</span>':''}</div>
-      <button class="bd-add-btn" onclick="addBreakdown('${stat.id}')">+ Add</button>
-    </div>`).join('');
-
-  // ─ Page layout: breakdown first, then budgets, subs, quick adds, system ─
   return `
     <div class="page-header"><h1>Settings</h1></div>
 
-    <!-- ── 0. Breakdown layout (FIRST — controls Period tab summary) ── -->
-    <div class="card">
-      <div class="card-label">Period Breakdown</div>
-      <div style="font-size:12px;color:var(--muted);margin-bottom:12px">Choose which stats appear on the Period tab summary card, and in what order. You can also break out individual subscriptions as their own line.</div>
-      ${enabledBdRows || '<div class="empty" style="padding:8px 0">No stats — add some below</div>'}
-      ${disabledBd.length ? `<div class="bd-section-label">Available</div>${disabledBdRows}` : ''}
-    </div>
-
-    <!-- ── 1. Category budgets ── -->
-    <div class="card">
-      <div class="card-label">Category Budgets</div>
-      <div style="font-size:12px;color:var(--muted);margin-bottom:12px">Monthly amounts per category. Divided by pay frequency each period. Leftover carries forward.</div>
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-        <span style="font-size:13px">Budget alerts</span>
-        <select onchange="updateSetting('budgetAlerts', this.value==='on')" style="width:auto;padding:6px 10px;font-size:13px">
-          <option value="on"  ${s.budgetAlerts!==false?'selected':''}>On</option>
-          <option value="off" ${s.budgetAlerts===false?'selected':''}>Off</option>
-        </select>
-      </div>
-      ${catRows}
-      <button class="add-btn" onclick="addCat()">+ Add Category</button>
-    </div>
-
-    <!-- ── 2. Monthly subscriptions (formerly Fixed costs) ── -->
+    <!-- ── Monthly subscriptions ── -->
     <div class="card">
       <div class="card-label">Monthly Subscriptions</div>
       <div style="font-size:12px;color:var(--muted);margin-bottom:12px">
@@ -1411,15 +1397,7 @@ function renderSettings() {
       <button class="add-btn" onclick="addFixed()">+ Add Subscription</button>
     </div>
 
-    <!-- ── 3. Quick adds ── -->
-    <div class="card">
-      <div class="card-label">Quick Add Items</div>
-      <div style="font-size:12px;color:var(--muted);margin-bottom:12px">Shortcuts in the Add tab. Choose Fixed $, % of Total Income, or % of Category Budget.</div>
-      ${quickAddRows}
-      <button class="add-btn" onclick="addQuick()">+ Add Quick Add</button>
-    </div>
-
-    <!-- ── 4. System / Utility controls (BOTTOM) ── -->
+    <!-- ── System / Utility controls ── -->
     <div class="sec-div" style="margin-top:24px">System &amp; utilities</div>
 
     <div class="card">
@@ -1520,7 +1498,7 @@ function updateFixed(idx, field, val) {
   save();
 }
 function addFixed() {
-  S.settings.fixedCosts.push({id: genId('fc'), name: 'New Subscription', monthly: 0, color: '#ffb347', billingType: 'split', billingDay: 1});
+  S.settings.fixedCosts.push({id: genId('fc'), name: 'New Subscription', monthly: 0, color: '#ffb347', billingType: 'split', billingDay: 1, cat: ''});
   save(); render();
 }
 function delFixed(idx) {
