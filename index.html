@@ -1324,10 +1324,13 @@ function renderHistory() {
   // Period comparison table
   let compareHtml = '<div class="empty">Need at least 2 periods for comparison</div>';
   if (cur && prev) {
-    const cmpRow = (label, curVal, prevVal, fmtFn = fmt) => {
+    const cmpRow = (label, curVal, prevVal, fmtFn = fmt, lowerIsBetter = false) => {
       const delta = curVal - prevVal;
       const sign  = delta > 0 ? '+' : '';
-      const col   = delta > 0 ? 'var(--green)' : delta < 0 ? 'var(--red)' : 'var(--muted)';
+      const col   = delta === 0 ? 'var(--muted)'
+        : lowerIsBetter
+          ? (delta < 0 ? 'var(--green)' : 'var(--red)')
+          : (delta > 0 ? 'var(--green)' : 'var(--red)');
       return `<div class="ins-compare-row">
         <span class="ins-compare-label">${label}</span>
         <span class="ins-compare-val">${fmtFn(curVal)}</span>
@@ -1340,14 +1343,14 @@ function renderHistory() {
         <span class="ins-compare-label" style="color:var(--muted);font-size:10px;font-family:var(--font-mono);text-transform:uppercase;letter-spacing:.06em">Metric</span>
         <span class="ins-compare-val"   style="color:var(--muted);font-size:10px;font-family:var(--font-mono);text-transform:uppercase;letter-spacing:.06em">This</span>
         <span class="ins-compare-val"   style="color:var(--muted);font-size:10px;font-family:var(--font-mono);text-transform:uppercase;letter-spacing:.06em">Last</span>
-        <span class="ins-compare-delta" style="color:var(--muted);font-size:10px;font-family:var(--font-mono);text-transform:uppercase;letter-spacing:.06em">Δ</span>
+        <span class="ins-compare-delta" style="color:var(--muted);font-size:10px;font-family:var(--font-mono);text-transform:uppercase;letter-spacing:.06em">This−Last</span>
       </div>
       ${cmpRow('Income',     pIncome(cur),  pIncome(prev))}
-      ${cmpRow('Fixed',      pFixed(cur),   pFixed(prev))}
+      ${cmpRow('Fixed',      pFixed(cur),   pFixed(prev),  fmt, true)}
       ${cmpRow('Giving',     pTithe(cur),   pTithe(prev))}
-      ${cmpRow('Variable',   pVar(cur),     pVar(prev))}
+      ${cmpRow('Variable',   pVar(cur),     pVar(prev),    fmt, true)}
       ${cmpRow('Investable', pInvest(cur),  pInvest(prev))}
-      ${cmpRow('Savings %',  pRate(cur),    pRate(prev), n => n + '%')}`;
+      ${cmpRow('Savings %',  pRate(cur),    pRate(prev),   n => n + '%')}`;
   }
 
   // Avg spending per category (last 6 periods)
