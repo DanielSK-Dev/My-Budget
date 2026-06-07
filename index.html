@@ -41,6 +41,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 .cat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);margin-bottom:12px;overflow:hidden}
 .cat-edit-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);margin-bottom:8px;overflow:hidden}
 .cat-edit-card.cat-dragging{box-shadow:0 8px 24px rgba(0,0,0,.5);border-color:var(--green)}
+.q-edit-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);margin-bottom:8px;overflow:hidden}
+.q-edit-card.dragging{box-shadow:0 8px 24px rgba(0,0,0,.5);border-color:var(--green)}
 .cat-edit-head{cursor:pointer;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
 .cat-edit-card.cat-dragging .cat-edit-head{cursor:grabbing}
 .cat-header{display:flex;align-items:center;gap:10px;margin-bottom:10px}
@@ -346,6 +348,8 @@ let _catsEditing    = false; // toggles budget edit mode on Budgets tab
 let _catEditKey     = null;  // which category is open in edit mode
 let _catDrag        = null;  // category drag-to-reorder state
 let _quickEditing   = false; // toggles quick-add edit mode on Add tab
+let _quickEditKey   = null;  // which quick add is open in edit mode
+let _quickDrag      = null;  // quick add drag-to-reorder state
 // ── LOAD / SAVE ───────────────────────────────────────────────────────────
 function load() {
   try {
@@ -822,7 +826,7 @@ function newPeriodObj(isoDate, carry) {
 let TAB = 'home';
 function switchTab(t) {
   TAB = t;
-  _histEdit = null; _histAdd = null; _catsEditing = false; _catEditKey = null; _quickEditing = false;
+  _histEdit = null; _histAdd = null; _catsEditing = false; _catEditKey = null; _quickEditing = false; _quickEditKey = null;
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === t));
   render();
 }
@@ -1160,25 +1164,56 @@ function renderLog() {
     </div>`;
   }).join('');
   const s = S.settings;
-  const quickEditRows = (s.quickAdds || []).map((q, i) => `
-    <div class="quick-edit-row">
-      <div class="qe-top">
-        <input type="color" class="color-picker" value="${q.color||'#555555'}" onchange="updateQuick(${i},'color',this.value)" />
-        <input type="text" value="${q.name}" placeholder="Name" style="flex:1" onchange="updateQuick(${i},'name',this.value)" />
-        <button class="del-btn" onclick="delQuick(${i})">×</button>
+  const quickEditCards = (s.quickAdds || []).map((q, i) => {
+    const c   = s.cats[q.cat] || {};
+    const amt = calcQuickAmt(q);
+    let sub   = `${c.label||q.cat} · ${fmt(amt)}`;
+    if (q.amtType === 'pct_income') sub = `${c.label||q.cat} · ${q.amount}% of Inc (${fmt(amt)})`;
+    if (q.amtType === 'pct_budget') sub = `${c.label||q.cat} · ${q.amount}% of Budg (${fmt(amt)})`;
+    const isOpen = _quickEditKey === i;
+    const catSelOpts = Object.entries(s.cats).map(([k,cc]) => `<option value="${k}" ${q.cat===k?'selected':''}>${cc.label}</option>`).join('');
+    const editPanel = isOpen ? `
+      <div style="padding:4px 16px 16px;border-top:1px solid var(--border)">
+        <div class="field" style="margin-bottom:10px;margin-top:10px">
+          <label>Name</label>
+          <input type="text" value="${(q.name||'').replace(/"/g,'&quot;')}" placeholder="Name" maxlength="30" onchange="updateQuick(${i},'name',this.value)"/>
+        </div>
+        <div class="row-fields" style="margin-bottom:10px">
+          <div class="field"><label>Amount</label><input type="number" value="${q.amount}" placeholder="0" inputmode="decimal" min="0" step="0.01" onchange="updateQuick(${i},'amount',this.value)"/></div>
+          <div class="field"><label>Type</label>
+            <select onchange="updateQuick(${i},'amtType',this.value)">
+              <option value="fixed"      ${q.amtType==='fixed'?'selected':''}>$ Fixed</option>
+              <option value="pct_income" ${q.amtType==='pct_income'?'selected':''}>% Income</option>
+              <option value="pct_budget" ${q.amtType==='pct_budget'?'selected':''}>% Budget</option>
+            </select>
+          </div>
+        </div>
+        <div class="field" style="margin-bottom:14px">
+          <label>Category</label>
+          <select onchange="updateQuick(${i},'cat',this.value)">${catSelOpts}</select>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <input type="color" value="${q.color||'#555555'}" title="Color"
+            style="width:34px;height:30px;padding:2px;border:1px solid var(--border);border-radius:6px;cursor:pointer;background:none"
+            onchange="updateQuick(${i},'color',this.value)"/>
+          <span style="font-size:12px;color:var(--muted);flex:1">Color</span>
+          <button onclick="delQuick(${i})"
+            style="background:none;border:1px solid var(--red);color:var(--red);border-radius:6px;padding:4px 10px;font-size:12px;cursor:pointer">Delete</button>
+        </div>
+      </div>` : '';
+    return `<div class="q-edit-card">
+      <div style="display:flex;align-items:center;padding:14px 16px${isOpen?';padding-bottom:10px':''}">
+        <span style="font-size:20px;line-height:1;color:var(--muted);cursor:grab;touch-action:none;padding:2px 10px 2px 0;flex-shrink:0"
+          onpointerdown="quickDragStart(event,${i})">⠿</span>
+        <div style="flex:1;cursor:pointer;min-width:0;display:flex;align-items:center;gap:10px" onclick="openQuickEdit(${i})">
+          <div class="pip" style="background:${q.color||c.color||'#555'};height:28px"></div>
+          <div class="quick-info" style="flex:1;min-width:0"><div class="quick-name">${q.name}</div><div class="quick-sub">${sub}</div></div>
+          <span style="color:var(--muted);font-size:13px;flex-shrink:0">${isOpen?'▴':'✎'}</span>
+        </div>
       </div>
-      <div class="qe-bot">
-        <input type="number" value="${q.amount}" placeholder="Amt" style="width:70px" inputmode="decimal" min="0" step="0.01" onchange="updateQuick(${i},'amount',this.value)"/>
-        <select style="flex:1" onchange="updateQuick(${i},'amtType',this.value)">
-          <option value="fixed"      ${q.amtType==='fixed'?'selected':''}>$ Fixed</option>
-          <option value="pct_income" ${q.amtType==='pct_income'?'selected':''}>% Income</option>
-          <option value="pct_budget" ${q.amtType==='pct_budget'?'selected':''}>% Budget</option>
-        </select>
-        <select style="flex:1" onchange="updateQuick(${i},'cat',this.value)">
-          ${Object.entries(s.cats).map(([k,c]) => `<option value="${k}" ${q.cat===k?'selected':''}>${c.label}</option>`).join('')}
-        </select>
-      </div>
-    </div>`).join('');
+      ${editPanel}
+    </div>`;
+  }).join('');
   return `
     <div class="page-header"><h1>Add expense</h1></div>
     <div class="card">
@@ -1209,13 +1244,10 @@ function renderLog() {
       <div class="sec-div" style="margin:0;flex:1">Quick add</div>
       <button onclick="toggleQuickEdit()" style="background:none;border:1px solid var(--border);color:${_quickEditing?'var(--green)':'var(--muted)'};border-radius:8px;padding:4px 12px;font-size:12px;cursor:pointer;flex-shrink:0">${_quickEditing?'Done':'Edit'}</button>
     </div>
-    <div class="card">${quickRows || '<div class="empty" style="padding:10px 0">No quick adds yet</div>'}</div>
-
-    ${_quickEditing ? `<div class="card">
-      <div style="font-size:12px;color:var(--muted);margin-bottom:12px">Choose Fixed $, % of Income, or % of Category Budget.</div>
-      ${quickEditRows}
-      <button class="add-btn" onclick="addQuick()">+ Add Quick Add</button>
-    </div>` : ''}
+    ${_quickEditing
+      ? `${quickEditCards || '<div class="card"><div class="empty" style="padding:10px 0">No quick adds yet</div></div>'}
+         <button class="add-btn" style="margin-top:8px" onclick="addQuick()">+ Add Quick Add</button>`
+      : `<div class="card">${quickRows || '<div class="empty" style="padding:10px 0">No quick adds yet</div>'}</div>`}
 
     ${(S.settings.recurring||[]).length ? `<div class="sec-div">Recurring</div>
     <div class="card">
@@ -1606,8 +1638,64 @@ function updateSetting(key, val) {
   save(); toast('Saved');
 }
 function toggleCatsEdit()  { _catsEditing = !_catsEditing; _catEditKey = null; render(); }
-function toggleQuickEdit() { _quickEditing = !_quickEditing; render(); }
+function toggleQuickEdit() { _quickEditing = !_quickEditing; _quickEditKey = null; render(); }
+function openQuickEdit(i) { _quickEditKey = _quickEditKey === i ? null : i; render(); }
 function openCatEdit(k) { _catEditKey = _catEditKey === k ? null : k; render(); }
+
+// ── Quick add drag-to-reorder (handle-based, mirrors catDragStart) ────────
+function quickDragStart(e, idx) {
+  e.preventDefault();
+  const handle = e.currentTarget;
+  const card   = handle.closest('.q-edit-card');
+  if (!card || !card.parentElement) return;
+  const allCards = Array.from(card.parentElement.querySelectorAll('.q-edit-card'));
+  const rowH     = card.getBoundingClientRect().height + 8;
+  _quickDrag = {startIdx: idx, currentIdx: idx, card, allCards, rowH, startY: e.clientY, handle};
+  card.classList.add('dragging');
+  card.style.position = 'relative';
+  card.style.zIndex   = '20';
+  try { handle.setPointerCapture(e.pointerId); } catch(_) {}
+  document.addEventListener('pointermove',   quickDragMove, {passive:false});
+  document.addEventListener('pointerup',     quickDragEnd);
+  document.addEventListener('pointercancel', quickDragEnd);
+}
+function quickDragMove(e) {
+  if (!_quickDrag) return;
+  e.preventDefault();
+  const dy = e.clientY - _quickDrag.startY;
+  _quickDrag.card.style.transform = `translateY(${dy}px)`;
+  const newIdx = Math.max(0, Math.min(_quickDrag.allCards.length - 1,
+    _quickDrag.startIdx + Math.round(dy / _quickDrag.rowH)));
+  if (newIdx !== _quickDrag.currentIdx) {
+    _quickDrag.currentIdx = newIdx;
+    _quickDrag.allCards.forEach((r, i) => {
+      if (r === _quickDrag.card) return;
+      let shift = 0;
+      if (newIdx > _quickDrag.startIdx && i > _quickDrag.startIdx && i <= newIdx) shift = -_quickDrag.rowH;
+      if (newIdx < _quickDrag.startIdx && i >= newIdx && i < _quickDrag.startIdx) shift =  _quickDrag.rowH;
+      r.style.transition = 'transform .18s cubic-bezier(0.16,1,0.3,1)';
+      r.style.transform  = `translateY(${shift}px)`;
+    });
+  }
+}
+function quickDragEnd() {
+  if (!_quickDrag) return;
+  const {startIdx, currentIdx, card, allCards} = _quickDrag;
+  card.classList.remove('dragging');
+  card.style.cssText = '';
+  allCards.forEach(r => { r.style.transition = ''; r.style.transform = ''; });
+  document.removeEventListener('pointermove',   quickDragMove);
+  document.removeEventListener('pointerup',     quickDragEnd);
+  document.removeEventListener('pointercancel', quickDragEnd);
+  _quickDrag = null;
+  if (currentIdx !== startIdx) {
+    const arr = S.settings.quickAdds;
+    const [moved] = arr.splice(startIdx, 1);
+    arr.splice(currentIdx, 0, moved);
+    save();
+  }
+  render();
+}
 
 // ── Category long-press drag-to-reorder ───────────────────────────────────
 // A short tap on a card opens its edit panel; a long press (350ms) picks the
@@ -1720,7 +1808,7 @@ function addQuick() {
 }
 function delQuick(idx) {
   if (!confirm('Delete this quick shortcut?')) return;
-  S.settings.quickAdds.splice(idx, 1); save(); render();
+  S.settings.quickAdds.splice(idx, 1); _quickEditKey = null; save(); render();
 }
 // ── BUDGET ALERTS ─────────────────────────────────────────────────────────
 function checkBudgetAlert(cat) {
