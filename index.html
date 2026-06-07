@@ -181,6 +181,14 @@ select option{background:#1e1e1e}
 .be-row input.input-name { flex:1; text-align:left; font-family:var(--font); min-width:0; }
 .be-row input.input-num { width:70px; text-align:right; }
 /* Fixed cost edit rows */
+.rec-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);margin-bottom:8px;overflow:hidden}
+.rec-card-head{display:flex;align-items:center;gap:10px;padding:13px 14px;cursor:pointer;user-select:none;-webkit-user-select:none}
+.rec-card-head:active{background:var(--surface2)}
+.rec-card-info{flex:1;min-width:0}
+.rec-card-name{font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rec-card-sub{font-size:11px;color:var(--muted);font-family:var(--font-mono);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rec-card-amt{font-size:14px;font-family:var(--font-mono);font-weight:500;flex-shrink:0}
+.rec-card-body{padding:4px 14px 14px;border-top:1px solid var(--border)}
 .fc-edit-row{padding:12px 0;border-bottom:1px solid var(--border)}
 .fc-edit-row:last-child{border-bottom:none}
 .fc-edit-top{display:flex;align-items:center;gap:8px;margin-bottom:8px}
@@ -374,6 +382,8 @@ let _catDrag        = null;  // category drag-to-reorder state
 let _quickEditing   = false; // toggles quick-add edit mode on Add tab
 let _quickEditKey   = null;  // which quick add is open in edit mode
 let _quickDrag      = null;  // quick add drag-to-reorder state
+let _fcEditIdx      = null;  // which fixedCost card is open in edit mode
+let _recEditId      = null;  // which recurring-template card is open in edit mode
 // ── LOAD / SAVE ───────────────────────────────────────────────────────────
 function load() {
   try {
@@ -727,6 +737,7 @@ function switchTab(t) {
   TAB = t;
   _incEditing = false;
   _histEdit = null; _histAdd = null; _catsEditing = false; _catEditKey = null; _quickEditing = false; _quickEditKey = null;
+  _fcEditIdx = null; _recEditId = null;
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === t));
   render();
 }
@@ -762,7 +773,7 @@ function renderHome() {
   const payInfo   = getPaydayInfo();
   // Per-category remaining budget — a tiny "what's left" strip in the breakdown
   const catsLeftRows = Object.entries(S.settings.cats).map(([k, c]) => {
-    const left = catBudget(k) - catSpent(k);
+    const left = catBudget(k) - catSpent(k) - catDebt(k);
     return `<div class="bkd-cat">
       <span class="bkd-cat-dot" style="background:${c.color}"></span>
       <span class="bkd-cat-name">${c.label}</span>
@@ -869,7 +880,7 @@ function renderHome() {
     <div class="card">
       <div class="card-label">Breakdown</div>
       <div class="bkd-row"><span class="bkd-op"> </span><span class="bkd-name">Income</span><span class="bkd-val">${fmt(income)}</span></div>
-      <div class="bkd-row"><span class="bkd-op">−</span><span class="bkd-name">Fixed &amp; subscriptions</span><span class="bkd-val">${fmt(fixed)}</span></div>
+      <div class="bkd-row"><span class="bkd-op">−</span><span class="bkd-name">Recurring &amp; subscriptions</span><span class="bkd-val">${fmt(fixed)}</span></div>
       <div class="bkd-row"><span class="bkd-op">−</span><span class="bkd-name" style="display:flex;align-items:center">Giving ${titheBtn}</span><span class="bkd-val">${fmt(tithe)}</span></div>
       <div class="bkd-row"><span class="bkd-op">−</span><span class="bkd-name">Variable spent</span><span class="bkd-val">${fmt(varSpent)}</span></div>
       ${catsLeftRows ? `<div class="bkd-cats">${catsLeftRows}</div>` : ''}
@@ -1062,17 +1073,6 @@ function renderLog() {
     </div>`;
   }).join('');
   const planCatOpts = Object.entries(S.settings.cats).map(([k,c]) => `<option value="${k}">${c.label}</option>`).join('');
-  const recurRows = (S.settings.recurring || []).map(r => {
-    const c = S.settings.cats[r.cat] || {label:r.cat||'—', color:'#555'};
-    return `<div class="quick-item">
-      <div class="pip" style="background:${c.color};height:28px"></div>
-      <div class="quick-info">
-        <div class="quick-name">${r.name}</div>
-        <div class="quick-sub">${fmt(r.amount)} · ${c.label} · ${RECUR_LABELS[r.freq]||r.freq} · next ${isoToDisplay(r.nextISO)}</div>
-      </div>
-      <button class="del-btn" onclick="delRecurring('${r.id}')">×</button>
-    </div>`;
-  }).join('');
   const s = S.settings;
   const quickEditCards = (s.quickAdds || []).map((q, i) => {
     const c   = s.cats[q.cat] || {};
@@ -1159,11 +1159,7 @@ function renderLog() {
          <button class="add-btn" style="margin-top:8px" onclick="addQuick()">+ Add Quick Add</button>`
       : `<div class="card">${quickRows || '<div class="empty" style="padding:10px 0">No quick adds yet</div>'}</div>`}
 
-    ${(S.settings.recurring||[]).length ? `<div class="sec-div">Recurring</div>
-    <div class="card">
-      <div style="font-size:12px;color:var(--muted);margin-bottom:12px">Auto-added each period on schedule. Tap × to stop.</div>
-      ${recurRows}
-    </div>` : ''}`;
+`;
 }
 // ── HISTORY ───────────────────────────────────────────────────────────────
 function buildCatSummaryHtml(period) {
@@ -1426,52 +1422,135 @@ function saveHistAdd(pid) {
 function renderSettings() {
   const s = S.settings;
 
-  // ─ Monthly subscription rows ─────────────────────────────────────────
-  const fixedRows = (s.fixedCosts || []).map((f, i) => {
+  // ─ Subscription cards (tap-to-edit) ─────────────────────────────────
+  const subCards = (s.fixedCosts || []).map((f, i) => {
     const isDate = f.billingType === 'date';
+    const isOpen = _fcEditIdx === i;
+    const ppm    = s.payFreq === 'weekly' ? 4 : s.payFreq === 'monthly' ? 1 : 2;
+    const perPd  = isDate ? (parseFloat(f.monthly)||0) : (parseFloat(f.monthly)||0) / ppm;
     const catOpts = `<option value="">Uncategorized</option>` +
       Object.entries(s.cats).map(([k,c]) => `<option value="${k}" ${f.cat===k?'selected':''}>${c.label}</option>`).join('');
-    return `<div class="fc-edit-row">
-      <div class="fc-edit-top">
-        <input type="color" class="color-picker" value="${f.color||'#888888'}" onchange="updateFixed(${i},'color',this.value)" />
-        <input type="text" class="fc-name" value="${f.name}" placeholder="Subscription name" onchange="updateFixed(${i},'name',this.value)" />
-        <button class="del-btn" onclick="delFixed(${i})">×</button>
+    const body = isOpen ? `<div class="rec-card-body">
+      <div class="field" style="margin-top:10px">
+        <label>Name</label>
+        <input type="text" value="${(f.name||'').replace(/"/g,'&quot;')}" placeholder="Subscription name" maxlength="50" onchange="updateFixed(${i},'name',this.value)"/>
       </div>
-      <div class="fc-edit-bot">
-        <span style="font-size:11px;color:var(--muted);flex-shrink:0">$/mo</span>
-        <input type="number" class="fc-amt" value="${f.monthly||0}" placeholder="0" inputmode="decimal" min="0" step="1" onchange="updateFixed(${i},'monthly',this.value)" />
-        <select class="fc-type" onchange="updateFixed(${i},'billingType',this.value);render()">
-          <option value="split" ${!isDate?'selected':''}>Each period</option>
-          <option value="date"  ${isDate ?'selected':''}>Specific day</option>
-        </select>
+      <div class="row-fields">
+        <div class="field">
+          <label>Amount ($/mo)</label>
+          <input type="number" value="${f.monthly||0}" placeholder="0" inputmode="decimal" min="0" step="0.01" onchange="updateFixed(${i},'monthly',this.value)"/>
+        </div>
+        <div class="field">
+          <label>Billing</label>
+          <select onchange="updateFixed(${i},'billingType',this.value);render()">
+            <option value="split" ${!isDate?'selected':''}>Each period</option>
+            <option value="date"  ${isDate ?'selected':''}>Specific day</option>
+          </select>
+        </div>
       </div>
-      <div class="fc-edit-bot" style="margin-top:4px">
-        <span style="font-size:11px;color:var(--muted);flex-shrink:0">Category</span>
-        <select style="flex:1" onchange="updateFixed(${i},'cat',this.value)">${catOpts}</select>
-      </div>
-      ${isDate ? `<div class="fc-edit-day">
-        <span style="font-size:11px;color:var(--muted);flex-shrink:0">Day of month</span>
-        <input type="number" class="fc-day" value="${f.billingDay||1}" min="1" max="31" inputmode="numeric" onchange="updateFixed(${i},'billingDay',this.value)" />
+      ${isDate ? `<div class="field">
+        <label>Day of month</label>
+        <input type="number" value="${f.billingDay||1}" min="1" max="31" inputmode="numeric" onchange="updateFixed(${i},'billingDay',this.value)"/>
       </div>` : ''}
+      <div class="field">
+        <label>Category</label>
+        <select onchange="updateFixed(${i},'cat',this.value)">${catOpts}</select>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;margin-top:4px">
+        <input type="color" value="${f.color||'#888888'}" title="Color"
+          style="width:34px;height:30px;padding:2px;border:1px solid var(--border);border-radius:6px;cursor:pointer;background:none"
+          onchange="updateFixed(${i},'color',this.value)"/>
+        <span style="font-size:12px;color:var(--muted);flex:1">Color</span>
+        <button onclick="delFixed(${i})"
+          style="background:none;border:1px solid var(--red);color:var(--red);border-radius:6px;padding:4px 10px;font-size:12px;cursor:pointer">Delete</button>
+      </div>
+    </div>` : '';
+    const schedLabel = isDate
+      ? `Due day ${f.billingDay||1} · $${(parseFloat(f.monthly)||0).toFixed(0)}/mo`
+      : `Each period · ${fmt(perPd)}/pd`;
+    return `<div class="rec-card">
+      <div class="rec-card-head" onclick="openFcEdit(${i})">
+        <div class="pip" style="background:${f.color||'#888'};height:32px"></div>
+        <div class="rec-card-info">
+          <div class="rec-card-name">${f.name||'Unnamed'}</div>
+          <div class="rec-card-sub">${schedLabel}${f.cat&&s.cats[f.cat]?' · '+s.cats[f.cat].label:''}</div>
+        </div>
+        <div class="rec-card-amt">${fmt(parseFloat(f.monthly)||0)}</div>
+        <span style="color:var(--muted);font-size:13px;margin-left:8px">${isOpen?'▴':'▾'}</span>
+      </div>
+      ${body}
+    </div>`;
+  }).join('');
+
+  // ─ Recurring expense template cards (tap-to-edit) ────────────────────
+  const recCards = (s.recurring || []).map(r => {
+    const isOpen = _recEditId === r.id;
+    const c = s.cats[r.cat] || {color:'#555', label:'—'};
+    const catOpts = Object.entries(s.cats).map(([k,cc]) =>
+      `<option value="${k}" ${r.cat===k?'selected':''}>${cc.label}</option>`).join('');
+    const body = isOpen ? `<div class="rec-card-body">
+      <div class="field" style="margin-top:10px">
+        <label>Description</label>
+        <input type="text" value="${(r.name||'').replace(/"/g,'&quot;')}" placeholder="Name" maxlength="60" onchange="updateRecurring('${r.id}','name',this.value)"/>
+      </div>
+      <div class="row-fields">
+        <div class="field">
+          <label>Amount ($)</label>
+          <input type="number" value="${r.amount||0}" placeholder="0.00" inputmode="decimal" min="0" step="0.01" onchange="updateRecurring('${r.id}','amount',this.value)"/>
+        </div>
+        <div class="field">
+          <label>Frequency</label>
+          <select onchange="updateRecurring('${r.id}','freq',this.value)">
+            ${Object.entries(RECUR_LABELS).map(([v,l])=>`<option value="${v}" ${r.freq===v?'selected':''}>${l}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+      <div class="field">
+        <label>Category</label>
+        <select onchange="updateRecurring('${r.id}','cat',this.value)">${catOpts}</select>
+      </div>
+      <div class="field">
+        <label>Next due date</label>
+        <input type="date" value="${r.nextISO||''}" onchange="updateRecurring('${r.id}','nextISO',this.value)"/>
+      </div>
+      <div style="margin-top:8px;text-align:right">
+        <button onclick="delRecurring('${r.id}')"
+          style="background:none;border:1px solid var(--red);color:var(--red);border-radius:6px;padding:4px 10px;font-size:12px;cursor:pointer">Stop &amp; delete</button>
+      </div>
+    </div>` : '';
+    return `<div class="rec-card">
+      <div class="rec-card-head" onclick="openRecEdit('${r.id}')">
+        <div class="pip" style="background:${c.color};height:32px"></div>
+        <div class="rec-card-info">
+          <div class="rec-card-name">${r.name||'Unnamed'}</div>
+          <div class="rec-card-sub">${RECUR_LABELS[r.freq]||r.freq} · ${c.label} · next ${isoToDisplay(r.nextISO)}</div>
+        </div>
+        <div class="rec-card-amt">${fmt(r.amount)}</div>
+        <span style="color:var(--muted);font-size:13px;margin-left:8px">${isOpen?'▴':'▾'}</span>
+      </div>
+      ${body}
     </div>`;
   }).join('');
 
   return `
     <div class="page-header"><h1>Settings</h1></div>
 
-    <!-- ── Monthly subscriptions ── -->
-    <div class="card">
-      <div class="card-label">Monthly Subscriptions</div>
-      <div style="font-size:12px;color:var(--muted);margin-bottom:12px">
-        <b style="color:var(--text)">Each period</b> — splits monthly amount across pay periods.<br>
-        <b style="color:var(--text)">Specific day</b> — full amount only in the period containing that calendar day.
-      </div>
-      ${fixedRows}
-      <button class="add-btn" onclick="addFixed()">+ Add Subscription</button>
+    <!-- ── Recurring / Subscriptions ── -->
+    <div class="sec-div">Subscriptions</div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:10px;padding:0 2px">
+      Monthly bills that appear in the Upcoming section.
+      <b style="color:var(--text)">Each period</b> splits the monthly amount;
+      <b style="color:var(--text)">Specific day</b> charges the full amount in the billing period only.
     </div>
+    ${subCards || '<div class="card"><div class="empty" style="padding:10px 0">No subscriptions yet</div></div>'}
+    <button class="add-btn" onclick="addFixed()">+ Add Subscription</button>
+
+    <div class="sec-div" style="margin-top:20px">Recurring expenses</div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:10px;padding:0 2px">Auto-added to each period on schedule. Set up when adding an expense with the Recurring checkbox.</div>
+    ${recCards || '<div class="card"><div class="empty" style="padding:10px 0">No recurring expenses — add one on the Add tab</div></div>'}
 
     <!-- ── System / Utility controls ── -->
-    <div class="sec-div" style="margin-top:24px">System &amp; utilities</div>
+    <div class="sec-div" style="margin-top:20px">System &amp; utilities</div>
 
     <div class="card">
       <div class="card-label">Pay period schedule</div>
@@ -1929,8 +2008,18 @@ function addExpense() {
 }
 function delRecurring(id) {
   S.settings.recurring = (S.settings.recurring || []).filter(r => r.id !== id);
+  _recEditId = null;
   save(); render(); toast('Recurring stopped');
 }
+function openRecEdit(id) { _recEditId = (_recEditId === id ? null : id); render(); }
+function updateRecurring(id, field, val) {
+  const r = (S.settings.recurring || []).find(x => x.id === id);
+  if (!r) return;
+  if (field === 'amount') r[field] = parseFloat(val) || 0;
+  else r[field] = val;
+  save(); render();
+}
+function openFcEdit(idx) { _fcEditIdx = (_fcEditIdx === idx ? null : idx); render(); }
 function quickAdd(i) {
   const q = S.settings.quickAdds[i];
   if (!S.currentPeriod) {
