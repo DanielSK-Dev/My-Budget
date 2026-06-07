@@ -1007,7 +1007,7 @@ function renderCats() {
   // In edit mode show every category (so all can be edited and reordered)
   const list = _catsEditing ? Object.entries(cats) : visibleCats;
 
-  const cards = list.map(([k,c]) => {
+  const cards = list.map(([k,c], idx) => {
     const budget      = catBudget(k);
     const debt        = catDebt(k);
     const actualSpent = catSpent(k);
