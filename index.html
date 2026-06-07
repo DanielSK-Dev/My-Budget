@@ -52,6 +52,11 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 .prog-track{height:4px;background:var(--surface2);border-radius:2px;overflow:hidden;margin-bottom:6px}
 .prog-fill{height:100%;border-radius:2px;transition:width .4s cubic-bezier(.4,0,.2,1)}
 .prog-labels{display:flex;justify-content:space-between;font-size:10px;color:var(--muted);font-family:var(--font-mono)}
+.cat-stats{display:flex;gap:0;margin-top:10px;border:1px solid var(--border);border-radius:8px;overflow:hidden}
+.cat-stat{flex:1;text-align:center;padding:7px 4px;border-right:1px solid var(--border)}
+.cat-stat:last-child{border-right:none}
+.cat-stat-lbl{font-size:9px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-family:var(--font-mono);margin-bottom:3px}
+.cat-stat-val{font-size:12px;font-family:var(--font-mono);white-space:nowrap}
 .carry-tag{font-size:10px;font-family:var(--font-mono);color:var(--green);margin-top:4px}
 .exp-item{display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--border)}
 .exp-item:last-child{border-bottom:none}
@@ -1022,6 +1027,7 @@ function renderCats() {
     const barCol      = pct>90 ? 'var(--red)' : pct>70 ? 'var(--amber)' : c.color;
     const remClass    = rem<0 ? 'r' : rem < budget*0.25 ? 'a' : 'g';
     const carry       = S.currentPeriod?.carryover?.[k] || 0;
+    const base        = (c.monthly || 0) / ppm; // per-period allocation before rollover
 
     const headerHtml = `
       <div class="cat-header">
@@ -1031,9 +1037,23 @@ function renderCats() {
         <span class="summary-chevron">${_catsEditing ? (_catEditKey===k?'▴':'⠿') : '▾'}</span>
       </div>
       <div class="prog-track"><div class="prog-fill" style="width:${pct}%;background:${barCol}"></div></div>
-      <div class="prog-labels">
-        <span>${fmt(actualSpent)} spent${debt > 0 ? ` + ${fmt(debt)} debt` : ''}</span>
-        <span>${fmt(budget)} budget${carry > 0 ? ` + ${fmt(carry)} rollover` : ''}</span>
+      <div class="cat-stats">
+        <div class="cat-stat">
+          <div class="cat-stat-lbl">Period</div>
+          <div class="cat-stat-val">${fmt(base)}</div>
+        </div>
+        <div class="cat-stat">
+          <div class="cat-stat-lbl">Spent</div>
+          <div class="cat-stat-val" style="color:${actualSpent>0?'var(--amber)':'var(--muted)'}">${fmt(actualSpent)}${debt>0?`<br><span style="font-size:10px;color:var(--red)">+${fmt(debt)} debt</span>`:''}</div>
+        </div>
+        <div class="cat-stat">
+          <div class="cat-stat-lbl">Rollover</div>
+          <div class="cat-stat-val" style="color:${carry>0?'var(--green)':carry<0?'var(--red)':'var(--muted)'}">${carry>0?'+':''}${carry!==0?fmt(Math.abs(carry)):'—'}</div>
+        </div>
+        <div class="cat-stat">
+          <div class="cat-stat-lbl">Total</div>
+          <div class="cat-stat-val">${fmt(budget)}</div>
+        </div>
       </div>`;
 
     if (_catsEditing) {
@@ -1105,8 +1125,6 @@ function renderCats() {
     return `<details class="cat-card" style="padding:0">
       <summary style="padding:16px;outline:none;cursor:pointer;display:block">
         ${headerHtml}
-        ${carry > 0 ? `<div class="carry-tag">+ ${fmt(carry)} carried over from last period</div>` : ''}
-        ${debt  > 0 ? `<div class="carry-tag" style="color:var(--red)">− ${fmt(debt)} debt from last period (pre-counted as spent)</div>` : ''}
       </summary>
       <div class="hist-exps-list" style="padding:14px 16px 16px;margin-top:0">
         <div style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:8px;font-family:var(--font-mono)">Transactions this period</div>
