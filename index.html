@@ -128,6 +128,13 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 .bkd-val{font-family:var(--font-mono);font-weight:500}
 .bkd-row.bkd-total{margin-top:2px;padding-top:10px;border-top:2px solid var(--border)}
 .bkd-row.bkd-total .bkd-name{color:var(--text);font-weight:500}
+/* Tiny per-category "what's left" strip inside the breakdown card */
+.bkd-cats{display:flex;flex-direction:column;gap:6px;padding:9px 0 9px 14px;border-bottom:1px solid var(--border)}
+.bkd-cat{display:flex;align-items:center;gap:7px;font-size:11px}
+.bkd-cat-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.bkd-cat-name{flex:1;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bkd-cat-left{font-family:var(--font-mono);color:var(--muted);flex-shrink:0}
+.bkd-cat-left.r{color:var(--red)}
 .field{display:flex;flex-direction:column;gap:6px;margin-bottom:12px}
 .field label{font-size:11px;color:var(--muted);letter-spacing:.06em;font-family:var(--font-mono)}
 input[type=text],input[type=number],input[type=date],select{
@@ -752,10 +759,16 @@ function renderHome() {
   const totalOut  = fixed + tithe + varSpent;
   const remaining = income - totalOut;
   const rate      = income > 0 ? Math.round(remaining / income * 100) : null;
-  // "Safe to spend" = remaining headroom across all variable category budgets
-  const safeToSpend = Object.keys(S.settings.cats).reduce((sum, k) =>
-    sum + Math.max(0, catBudget(k) - catSpent(k)), 0);
   const payInfo   = getPaydayInfo();
+  // Per-category remaining budget — a tiny "what's left" strip in the breakdown
+  const catsLeftRows = Object.entries(S.settings.cats).map(([k, c]) => {
+    const left = catBudget(k) - catSpent(k);
+    return `<div class="bkd-cat">
+      <span class="bkd-cat-dot" style="background:${c.color}"></span>
+      <span class="bkd-cat-name">${c.label}</span>
+      <span class="bkd-cat-left ${left < 0 ? 'r' : ''}">${left < 0 ? '−' : ''}${fmt(Math.abs(left))} left</span>
+    </div>`;
+  }).join('');
   const expRows = exps.length === 0
     ? '<div class="empty">No variable expenses yet</div>'
     : exps.map((e, i) => ({e, i}))
@@ -835,8 +848,8 @@ function renderHome() {
           <div class="hero-val ${remaining < 0 ? 'r' : 'g'}">${remaining < 0 ? '−' : ''}${fmt(Math.abs(remaining))}</div>
         </div>
         <div class="hero-half" style="padding-left:16px">
-          <div class="hero-lbl">Safe to spend</div>
-          <div class="hero-val ${safeToSpend <= 0 ? 'r' : 'g'}">${safeToSpend < 0 ? '−' : ''}${fmt(Math.abs(safeToSpend))}</div>
+          <div class="hero-lbl">Spent</div>
+          <div class="hero-val">${fmt(varSpent)}</div>
         </div>
       </div>
       <div class="hero-bottom">
@@ -859,6 +872,7 @@ function renderHome() {
       <div class="bkd-row"><span class="bkd-op">−</span><span class="bkd-name">Fixed &amp; subscriptions</span><span class="bkd-val">${fmt(fixed)}</span></div>
       <div class="bkd-row"><span class="bkd-op">−</span><span class="bkd-name" style="display:flex;align-items:center">Giving ${titheBtn}</span><span class="bkd-val">${fmt(tithe)}</span></div>
       <div class="bkd-row"><span class="bkd-op">−</span><span class="bkd-name">Variable spent</span><span class="bkd-val">${fmt(varSpent)}</span></div>
+      ${catsLeftRows ? `<div class="bkd-cats">${catsLeftRows}</div>` : ''}
       <div class="bkd-row bkd-total"><span class="bkd-op">=</span><span class="bkd-name">Investable</span><span class="bkd-val ${remaining < 0 ? 'r' : 'g'}">${remaining < 0 ? '−' : ''}${fmt(Math.abs(remaining))}</span></div>
     </div>
     <div class="card">
