@@ -864,19 +864,20 @@ function renderHome() {
   const payInfo   = getPaydayInfo();
   const expRows = exps.length === 0
     ? '<div class="empty">No variable expenses yet</div>'
-    : exps.slice().reverse().map((e, ri) => {
-        const idx = exps.length - 1 - ri;
-        const c   = S.settings.cats[e.cat] || {label: e.cat, color: '#555'};
-        return `<div class="exp-item">
-          <div class="pip" style="background:${c.color};height:32px"></div>
-          <div class="exp-info">
-            <div class="exp-name">${e.name}</div>
-            <div class="exp-meta">${c.label} · ${e.date}${e.note ? `<div class="exp-note">${e.note}</div>` : ''}</div>
-          </div>
-          <div class="exp-amt">${fmt(e.amount)}</div>
-          <button class="del" onclick="delExp(${idx})">×</button>
-        </div>`;
-      }).join('');
+    : exps.map((e, i) => ({e, i}))
+          .sort((a, b) => (b.e.dateISO || b.e.date || '') > (a.e.dateISO || a.e.date || '') ? 1 : -1)
+          .map(({e, i}) => {
+            const c = S.settings.cats[e.cat] || {label: e.cat, color: '#555'};
+            return `<div class="exp-item">
+              <div class="pip" style="background:${c.color};height:32px"></div>
+              <div class="exp-info">
+                <div class="exp-name">${e.name}</div>
+                <div class="exp-meta">${c.label} · ${e.date}${e.note ? `<div class="exp-note">${e.note}</div>` : ''}</div>
+              </div>
+              <div class="exp-amt">${fmt(e.amount)}</div>
+              <button class="del" onclick="delExp(${i})">×</button>
+            </div>`;
+          }).join('');
   const fixedRows = (S.settings.fixedCosts || []).map((f, i) => {
     const status   = getFixedStatus(f, cp);
     const isPaid   = status === 'paid';
@@ -1412,11 +1413,14 @@ function renderHistory() {
         const out      = varSpent + fixedForPeriod(p) + titheAmt(inc);
         const sv       = inc - out;
         const rt  = inc > 0 ? Math.round(sv / inc * 100) : 0;
-        const expItems = (p.expenses||[]).map((e, ei) => {
-          if (_histEdit && _histEdit.pid === pid && _histEdit.ei === ei)
-            return renderHistEditRow(pid, ei, e);
-          return renderHistExpRow(pid, ei, e);
-        }).join('');
+        const expItems = (p.expenses||[])
+          .map((e, ei) => ({e, ei}))
+          .sort((a, b) => (b.e.dateISO || b.e.date || '') > (a.e.dateISO || a.e.date || '') ? 1 : -1)
+          .map(({e, ei}) => {
+            if (_histEdit && _histEdit.pid === pid && _histEdit.ei === ei)
+              return renderHistEditRow(pid, ei, e);
+            return renderHistExpRow(pid, ei, e);
+          }).join('');
         const addForm = _histAdd === pid ? renderHistAddForm(pid) : '';
         const isEmpty = (p.expenses||[]).length === 0 && _histAdd !== pid;
         const isOpen  = isCurrent || (_histEdit && _histEdit.pid === pid) || _histAdd === pid;
