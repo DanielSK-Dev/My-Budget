@@ -344,6 +344,8 @@ let _histAdd        = null;  // pid — which period is showing the inline add f
 let _catSuggestTimer = null; // debounce handle for smart categorization
 let _catsEditing    = false; // toggles budget edit mode on Budgets tab
 let _catEditKey     = null;  // which category is open in edit mode
+let _catDrag        = null;  // category drag-to-reorder state
+let _quickEditing   = false; // toggles quick-add edit mode on Add tab
 // ── LOAD / SAVE ───────────────────────────────────────────────────────────
 function load() {
   try {
@@ -820,7 +822,7 @@ function newPeriodObj(isoDate, carry) {
 let TAB = 'home';
 function switchTab(t) {
   TAB = t;
-  _histEdit = null; _histAdd = null; _catsEditing = false; _catEditKey = null;
+  _histEdit = null; _histAdd = null; _catsEditing = false; _catEditKey = null; _quickEditing = false;
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === t));
   render();
 }
@@ -1034,7 +1036,7 @@ function renderCats() {
       const perPeriod = Math.round((c.monthly || 0) / ppm * 100) / 100;
       const mode      = c.carryMode || 'both';
       const editPanel = isOpen ? `
-        <div onclick="event.stopPropagation()" style="padding:4px 16px 16px;border-top:1px solid var(--border)">
+        <div style="padding:4px 16px 16px;border-top:1px solid var(--border)">
           <div class="field" style="margin-bottom:10px;margin-top:10px">
             <label>Name</label>
             <input type="text" value="${c.label.replace(/"/g,'&quot;')}" placeholder="Category name" maxlength="30"
@@ -1059,15 +1061,19 @@ function renderCats() {
               style="width:34px;height:30px;padding:2px;border:1px solid var(--border);border-radius:6px;cursor:pointer;background:none"
               onchange="updateCat('${k}','color',this.value)"/>
             <span style="font-size:12px;color:var(--muted);flex:1">Color</span>
-            <button onclick="event.stopPropagation();delCat('${k}')"
+            <button onclick="delCat('${k}')"
               style="background:none;border:1px solid var(--red);color:var(--red);border-radius:6px;padding:4px 10px;font-size:12px;cursor:pointer">
               Delete
             </button>
           </div>
         </div>` : '';
       return `<div class="cat-edit-card">
-        <div class="cat-edit-head" style="padding:16px${isOpen?';padding-bottom:12px':''}" onpointerdown="catPointerDown(event,'${k}')">
-          ${headerHtml}
+        <div style="display:flex;align-items:center;padding:16px${isOpen?';padding-bottom:12px':''}">
+          <span style="font-size:20px;line-height:1;color:var(--muted);cursor:grab;touch-action:none;padding:2px 10px 2px 0;flex-shrink:0"
+            onpointerdown="catDragStart(event,${idx})">⠿</span>
+          <div style="flex:1;cursor:pointer;min-width:0" onclick="openCatEdit('${k}')">
+            ${headerHtml}
+          </div>
         </div>
         ${editPanel}
       </div>`;
@@ -1198,29 +1204,24 @@ function renderLog() {
       </div>
       <button class="btn btn-primary" onclick="addExpense()">Add to this period</button>
     </div>
-    <div class="sec-div">Quick add</div>
-    <div class="card">${quickRows || '<div class="empty" style="padding:10px 0">No quick adds — add one below</div>'}</div>
-    <div class="sec-div">Plan future expense</div>
-    <div class="card">
-      <div style="font-size:12px;color:var(--muted);margin-bottom:12px">Planned items appear on the Period tab. Tap ✓ Paid to convert to an actual expense when you spend it.</div>
-      <div class="field"><label>Description</label><input type="text" id="plan-name" placeholder="Upcoming purchase…" maxlength="60"/></div>
-      <div class="row-fields">
-        <div class="field"><label>Amount ($)</label><input type="number" id="plan-amt" placeholder="0.00" inputmode="decimal" min="0" step="0.01"/></div>
-        <div class="field"><label>Category</label><select id="plan-cat">${planCatOpts}</select></div>
-      </div>
-      <button class="btn btn-ghost" onclick="addPlanned()">Add to plan</button>
+
+    <div style="display:flex;align-items:center;justify-content:space-between;margin:20px 0 8px">
+      <div class="sec-div" style="margin:0;flex:1">Quick add</div>
+      <button onclick="toggleQuickEdit()" style="background:none;border:1px solid var(--border);color:${_quickEditing?'var(--green)':'var(--muted)'};border-radius:8px;padding:4px 12px;font-size:12px;cursor:pointer;flex-shrink:0">${_quickEditing?'Done':'Edit'}</button>
     </div>
+    <div class="card">${quickRows || '<div class="empty" style="padding:10px 0">No quick adds yet</div>'}</div>
+
+    ${_quickEditing ? `<div class="card">
+      <div style="font-size:12px;color:var(--muted);margin-bottom:12px">Choose Fixed $, % of Income, or % of Category Budget.</div>
+      ${quickEditRows}
+      <button class="add-btn" onclick="addQuick()">+ Add Quick Add</button>
+    </div>` : ''}
+
     ${(S.settings.recurring||[]).length ? `<div class="sec-div">Recurring</div>
     <div class="card">
       <div style="font-size:12px;color:var(--muted);margin-bottom:12px">Auto-added each period on schedule. Tap × to stop.</div>
       ${recurRows}
-    </div>` : ''}
-    <div class="sec-div">Manage quick adds</div>
-    <div class="card">
-      <div style="font-size:12px;color:var(--muted);margin-bottom:12px">Shortcuts that appear above. Choose Fixed $, % of Income, or % of Category Budget.</div>
-      ${quickEditRows}
-      <button class="add-btn" onclick="addQuick()">+ Add Quick Add</button>
-    </div>`;
+    </div>` : ''}`;
 }
 // ── HISTORY ───────────────────────────────────────────────────────────────
 function buildCatSummaryHtml(period) {
@@ -1601,79 +1602,40 @@ function updateSetting(key, val) {
   }
   save(); toast('Saved');
 }
-function toggleCatsEdit() { _catsEditing = !_catsEditing; _catEditKey = null; render(); }
+function toggleCatsEdit()  { _catsEditing = !_catsEditing; _catEditKey = null; render(); }
+function toggleQuickEdit() { _quickEditing = !_quickEditing; render(); }
 function openCatEdit(k) { _catEditKey = _catEditKey === k ? null : k; render(); }
 
 // ── Category long-press drag-to-reorder ───────────────────────────────────
 // A short tap on a card opens its edit panel; a long press (350ms) picks the
 // card up for dragging. Reorder commits by rebuilding S.settings.cats.
-let _catPress = null, _catDrag = null;
-function catPointerDown(e, k) {
-  if (e.button && e.button !== 0) return;
-  const head = e.currentTarget;
-  const card = head.closest('.cat-edit-card');
-  if (!card) return;
-  _catPress = {k, card, startX: e.clientX, startY: e.clientY, pointerId: e.pointerId,
-    timer: setTimeout(beginCatDrag, 350)};
-  document.addEventListener('pointermove',   catPressMove, {passive:false});
-  document.addEventListener('pointerup',     catPressUp);
-  document.addEventListener('pointercancel', catPressCancel);
-}
-function catPressMove(e) {
-  if (!_catPress) return;
-  if (_catDrag) { catDragMove(e); return; }
-  const dx = e.clientX - _catPress.startX, dy = e.clientY - _catPress.startY;
-  if (Math.abs(dx) > 8 || Math.abs(dy) > 8) { clearTimeout(_catPress.timer); cleanupCatPress(); }
-}
-function catPressUp() {
-  if (!_catPress) return;
-  if (_catDrag) { catDragEnd(); cleanupCatPress(); return; }
-  clearTimeout(_catPress.timer);
-  const k = _catPress.k;
-  cleanupCatPress();
-  openCatEdit(k);
-}
-function catPressCancel() {
-  if (!_catPress) return;
-  if (_catDrag) catDragEnd();
-  clearTimeout(_catPress.timer);
-  cleanupCatPress();
-}
-function cleanupCatPress() {
-  document.removeEventListener('pointermove',   catPressMove);
-  document.removeEventListener('pointerup',     catPressUp);
-  document.removeEventListener('pointercancel', catPressCancel);
-  _catPress = null;
-}
-function beginCatDrag() {
-  if (!_catPress) return;
-  const card = _catPress.card;
+// ── Category drag-to-reorder (handle-based, mirrors bdDragStart) ──────────
+function catDragStart(e, idx) {
+  e.preventDefault();
+  const handle = e.currentTarget;
+  const card   = handle.closest('.cat-edit-card');
   if (!card || !card.parentElement) return;
-  const allRows = Array.from(card.parentElement.querySelectorAll('.cat-edit-card'));
-  const startIdx = allRows.indexOf(card);
-  const centers  = allRows.map(r => { const b = r.getBoundingClientRect(); return b.top + b.height/2; });
-  _catDrag = {startIdx, currentIdx: startIdx, card, allRows, centers,
-    startY: _catPress.startY, rowH: card.getBoundingClientRect().height + 8};
+  const allCards = Array.from(card.parentElement.querySelectorAll('.cat-edit-card'));
+  const rowH     = card.getBoundingClientRect().height + 8; // 8px margin-bottom
+  _catDrag = {startIdx: idx, currentIdx: idx, card, allCards, rowH, startY: e.clientY, handle};
   card.classList.add('cat-dragging');
   card.style.position = 'relative';
-  card.style.zIndex   = '30';
-  try { card.setPointerCapture(_catPress.pointerId); } catch(_) {}
-  if (navigator.vibrate) { try { navigator.vibrate(15); } catch(_) {} }
+  card.style.zIndex   = '20';
+  try { handle.setPointerCapture(e.pointerId); } catch(_) {}
+  document.addEventListener('pointermove',   catDragMove, {passive:false});
+  document.addEventListener('pointerup',     catDragEnd);
+  document.addEventListener('pointercancel', catDragEnd);
 }
 function catDragMove(e) {
   if (!_catDrag) return;
   e.preventDefault();
-  const dy = e.clientY - _catDrag.startY;
+  const dy     = e.clientY - _catDrag.startY;
   _catDrag.card.style.transform = `translateY(${dy}px)`;
-  // Nearest slot to the pointer becomes the target index
-  let newIdx = 0, best = Infinity;
-  _catDrag.centers.forEach((cy, i) => {
-    const d = Math.abs(e.clientY - cy);
-    if (d < best) { best = d; newIdx = i; }
-  });
+  const newIdx = Math.max(0, Math.min(_catDrag.allCards.length - 1,
+    _catDrag.startIdx + Math.round(dy / _catDrag.rowH)));
   if (newIdx !== _catDrag.currentIdx) {
     _catDrag.currentIdx = newIdx;
-    _catDrag.allRows.forEach((r, i) => {
+    _catDrag.allCards.forEach((r, i) => {
       if (r === _catDrag.card) return;
       let shift = 0;
       if (newIdx > _catDrag.startIdx && i > _catDrag.startIdx && i <= newIdx) shift = -_catDrag.rowH;
@@ -1685,10 +1647,13 @@ function catDragMove(e) {
 }
 function catDragEnd() {
   if (!_catDrag) return;
-  const {startIdx, currentIdx, card, allRows} = _catDrag;
+  const {startIdx, currentIdx, card, allCards} = _catDrag;
   card.classList.remove('cat-dragging');
   card.style.cssText = '';
-  allRows.forEach(r => { r.style.transition = ''; r.style.transform = ''; });
+  allCards.forEach(r => { r.style.transition = ''; r.style.transform = ''; });
+  document.removeEventListener('pointermove',   catDragMove);
+  document.removeEventListener('pointerup',     catDragEnd);
+  document.removeEventListener('pointercancel', catDragEnd);
   _catDrag = null;
   if (currentIdx !== startIdx) {
     const keys = Object.keys(S.settings.cats);
