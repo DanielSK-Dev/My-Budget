@@ -106,6 +106,28 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 .sum-row:last-child{border-bottom:none}
 .sum-label{color:var(--muted)}
 .sum-val{font-family:var(--font-mono);font-weight:500}
+/* Hero card */
+.hero-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:20px 16px 16px;margin-bottom:12px}
+.hero-halves{display:grid;grid-template-columns:1fr 1fr;gap:0}
+.hero-half{padding:4px 8px}
+.hero-half:first-child{padding-left:0;border-right:1px solid var(--border)}
+.hero-half:last-child{padding-right:0}
+.hero-lbl{font-size:9px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);font-family:var(--font-mono);margin-bottom:6px}
+.hero-val{font-size:30px;font-weight:500;font-family:var(--font-mono);letter-spacing:-.03em;line-height:1.1}
+.hero-bottom{display:flex;align-items:center;justify-content:space-between;margin-top:14px;padding-top:12px;border-top:1px solid var(--border)}
+.hero-income{font-size:13px;color:var(--muted);cursor:pointer;display:flex;align-items:center;gap:5px;-webkit-tap-highlight-color:transparent}
+.hero-income:active{color:var(--text)}
+.hero-income-edit{background:var(--surface2);border:1px solid var(--green);border-radius:8px;color:var(--text);font-family:var(--font-mono);font-size:15px;padding:5px 10px;width:130px;outline:none}
+.hero-rate{font-size:11px;font-family:var(--font-mono);padding:3px 9px;border-radius:20px;background:var(--green-dim);color:var(--green)}
+.hero-rate.neg{background:var(--red-dim);color:var(--red)}
+/* Compact breakdown waterfall */
+.bkd-row{display:flex;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px}
+.bkd-row:last-child{border-bottom:none}
+.bkd-op{font-family:var(--font-mono);color:var(--muted);width:14px;flex-shrink:0;font-size:12px}
+.bkd-name{flex:1;color:var(--muted)}
+.bkd-val{font-family:var(--font-mono);font-weight:500}
+.bkd-row.bkd-total{margin-top:2px;padding-top:10px;border-top:2px solid var(--border)}
+.bkd-row.bkd-total .bkd-name{color:var(--text);font-weight:500}
 .field{display:flex;flex-direction:column;gap:6px;margin-bottom:12px}
 .field label{font-size:11px;color:var(--muted);letter-spacing:.06em;font-family:var(--font-mono)}
 input[type=text],input[type=number],input[type=date],select{
@@ -303,7 +325,7 @@ details[open] > summary .summary-chevron {
 <div id="toast"></div>
 <script>
 // ── VERSION ───────────────────────────────────────────────────────────────
-const APP_VERSION = '1.8.0';
+const APP_VERSION = '1.9.0';
 // ── DEFAULTS ──────────────────────────────────────────────────────────────
 const DEFAULT_CATS = {
   groceries: {label:'Groceries',     color:'#00c97a', monthly:200},
@@ -319,15 +341,6 @@ const DEFAULT_QUICK = [
   {name:'Gas fillup', amount:40, amtType:'fixed', cat:'trans',      color:'#4d9fff'},
   {name:'Groceries',  amount:50, amtType:'fixed', cat:'groceries',  color:'#00c97a'},
 ];
-// Built-in breakdown stats (also extended at runtime with sub:<fixedId> entries)
-const DEFAULT_BREAKDOWN = ['income', 'fixed_total', 'giving', 'variable', 'invest'];
-const BUILTIN_BREAKDOWN_LABELS = {
-  income:      'Gross income',
-  fixed_total: 'Fixed costs (total)',
-  giving:      'Giving / tithe',
-  variable:    'Variable expenses',
-  invest:      'To invest',
-};
 // ── STATE ─────────────────────────────────────────────────────────────────
 const SK = 'budget_v9';
 let S = {
@@ -341,7 +354,6 @@ let S = {
     cats: {...DEFAULT_CATS},
     fixedCosts: [...DEFAULT_FIXED],
     quickAdds:  [...DEFAULT_QUICK],
-    breakdown:  [...DEFAULT_BREAKDOWN],  // ordered list of stat IDs shown on Period tab
     budgetAlerts: true,
   }
 };
@@ -376,8 +388,6 @@ function load() {
       if (!f.id) f.id = genId('fc');
       if (typeof f.cat === 'undefined') f.cat = '';
     });
-    if (!S.settings.breakdown || !S.settings.breakdown.length)
-      S.settings.breakdown = [...DEFAULT_BREAKDOWN];
     if (!S.settings.quickAdds || !S.settings.quickAdds.length) {
       S.settings.quickAdds = [...DEFAULT_QUICK];
     } else {
@@ -590,131 +600,8 @@ function toggleFixedPaid(idx) {
 }
 
 // ── BREAKDOWN LAYOUT ──────────────────────────────────────────────────────
-function removeBreakdown(id) {
-  S.settings.breakdown = (S.settings.breakdown || []).filter(s => s !== id);
-  save(); render();
-}
-function addBreakdown(id) {
-  if (!S.settings.breakdown) S.settings.breakdown = [];
-  if (!S.settings.breakdown.includes(id)) S.settings.breakdown.push(id);
-  save(); render();
-}
-
-// ── BREAKDOWN DRAG-TO-REORDER ─────────────────────────────────────────────
-// Pointer Events work for both touch and mouse. While dragging, the picked-up
-// row follows the pointer; siblings shift up/down to preview the drop slot.
-let _bdDrag = null;
-function bdDragStart(e, idx) {
-  e.preventDefault();
-  const handle = e.currentTarget;
-  const row    = handle.closest('.bd-row');
-  if (!row || !row.parentElement) return;
-  const allRows = Array.from(row.parentElement.querySelectorAll('.bd-row:not(.dimmed)'));
-  const rowH = row.getBoundingClientRect().height;
-  _bdDrag = {
-    startIdx:   idx,
-    currentIdx: idx,
-    row, allRows, rowH,
-    startY:     e.clientY,
-    pointerId:  e.pointerId,
-    handle,
-  };
-  row.classList.add('bd-dragging');
-  row.style.position = 'relative';
-  row.style.zIndex   = '20';
-  try { handle.setPointerCapture(e.pointerId); } catch(_) {}
-  document.addEventListener('pointermove',   bdDragMove, {passive:false});
-  document.addEventListener('pointerup',     bdDragEnd);
-  document.addEventListener('pointercancel', bdDragEnd);
-}
-function bdDragMove(e) {
-  if (!_bdDrag) return;
-  e.preventDefault();
-  const dy = e.clientY - _bdDrag.startY;
-  _bdDrag.row.style.transform = `translateY(${dy}px)`;
-  // Clamp the new index inside the visible rows
-  const newIdx = Math.max(0, Math.min(
-    _bdDrag.allRows.length - 1,
-    _bdDrag.startIdx + Math.round(dy / _bdDrag.rowH)
-  ));
-  if (newIdx !== _bdDrag.currentIdx) {
-    _bdDrag.currentIdx = newIdx;
-    // Visually shift the OTHER rows to open up a slot at newIdx
-    _bdDrag.allRows.forEach((r, i) => {
-      if (r === _bdDrag.row) return;
-      let shift = 0;
-      if (newIdx > _bdDrag.startIdx && i > _bdDrag.startIdx && i <= newIdx) shift = -_bdDrag.rowH;
-      if (newIdx < _bdDrag.startIdx && i >= newIdx && i < _bdDrag.startIdx) shift =  _bdDrag.rowH;
-      r.style.transition = 'transform .18s cubic-bezier(0.16,1,0.3,1)';
-      r.style.transform  = `translateY(${shift}px)`;
-    });
-  }
-}
-function bdDragEnd() {
-  if (!_bdDrag) return;
-  const {startIdx, currentIdx, row, allRows} = _bdDrag;
-  // Reset visuals
-  row.classList.remove('bd-dragging');
-  row.style.cssText = '';
-  allRows.forEach(r => { r.style.transition = ''; r.style.transform = ''; });
-  document.removeEventListener('pointermove',   bdDragMove);
-  document.removeEventListener('pointerup',     bdDragEnd);
-  document.removeEventListener('pointercancel', bdDragEnd);
-  _bdDrag = null;
-  // Commit reorder if it actually changed
-  if (currentIdx !== startIdx && Array.isArray(S.settings.breakdown)) {
-    const arr = S.settings.breakdown;
-    const [item] = arr.splice(startIdx, 1);
-    arr.splice(currentIdx, 0, item);
-    save();
-    render();
-  }
-}
-
-// Render one row of the Period-tab breakdown card. ctx packages the values
-// computed in renderHome so we don't recompute them per stat.
-function renderBreakdownRow(stat, ctx) {
-  const {cp, income, fixed, tithe, varSpent, remaining, titheBtn} = ctx;
-  const investStyle = `border-top:1px solid var(--border);border-bottom:none;margin-top:4px;padding-top:12px`;
-  switch (stat) {
-    case 'income':
-      return `<div class="sum-row"><span class="sum-label">Gross income</span><span class="sum-val">${fmt(income)}</span></div>`;
-    case 'fixed_total':
-      return `<div class="sum-row"><span class="sum-label">Fixed costs</span><span class="sum-val r">−${fmt(fixed)}</span></div>`;
-    case 'giving':
-      return `<div class="sum-row">
-        <span class="sum-label" style="display:flex;align-items:center">Giving (${S.settings.tithe}%) ${titheBtn}</span>
-        <span class="sum-val r">−${fmt(tithe)}</span>
-      </div>`;
-    case 'variable':
-      return `<div class="sum-row"><span class="sum-label">Variable expenses</span><span class="sum-val a">−${fmt(varSpent)}</span></div>`;
-    case 'invest':
-      return `<div class="sum-row" style="${investStyle}">
-        <span class="sum-label" style="font-weight:500;color:var(--text)">To invest</span>
-        <span class="sum-val" style="color:${remaining<0?'var(--red)':'var(--green)'};font-size:16px">${remaining<0?'−':''}${fmt(remaining)}</span>
-      </div>`;
-  }
-  // Individual subscription lines (sub:<id>)
-  if (typeof stat === 'string' && stat.startsWith('sub:')) {
-    const f = (S.settings.fixedCosts || []).find(c => c.id === stat.slice(4));
-    if (!f) return '';
-    const amt = fixedCostForPeriod(f, cp);
-    if (amt === 0) return '';  // not billing this period — skip
-    const status = getFixedStatus(f, cp);
-    const paidInd = status === 'paid' ? ' <span style="color:var(--green);font-size:10px;font-family:var(--font-mono)">✓</span>' : '';
-    return `<div class="sum-row">
-      <span class="sum-label">${f.name}${paidInd}</span>
-      <span class="sum-val r">−${fmt(amt)}</span>
-    </div>`;
-  }
-  return '';
-}
-function renderBreakdownRows(ctx) {
-  // Use the user's order if they have one (even if empty — they may have
-  // intentionally cleared everything). Only fall back if it's never been set.
-  const order = Array.isArray(S.settings.breakdown) ? S.settings.breakdown : DEFAULT_BREAKDOWN;
-  return order.map(s => renderBreakdownRow(s, ctx)).join('') || '<div class="empty" style="padding:8px 0;font-size:12px">No stats — add some in Settings → Period Breakdown.</div>';
-}
+// Tracks whether the Period-tab hero income line is in inline-edit mode.
+let _incEditing = false;
 // ── AUTO ROLLOVER ─────────────────────────────────────────────────────────
 function checkAutoRollover() {
   if (!S.currentPeriod || !S.settings.lastPayday) return;
@@ -831,6 +718,7 @@ function newPeriodObj(isoDate, carry) {
 let TAB = 'home';
 function switchTab(t) {
   TAB = t;
+  _incEditing = false;
   _histEdit = null; _histAdd = null; _catsEditing = false; _catEditKey = null; _quickEditing = false; _quickEditKey = null;
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === t));
   render();
@@ -863,9 +751,10 @@ function renderHome() {
   const varSpent  = exps.reduce((a,e) => a + parseFloat(e.amount), 0);
   const totalOut  = fixed + tithe + varSpent;
   const remaining = income - totalOut;
-  const pct       = income > 0 ? Math.min(100, Math.round(totalOut / income * 100)) : 0;
   const rate      = income > 0 ? Math.round(remaining / income * 100) : null;
-  const barCol    = pct > 90 ? 'var(--red)' : pct > 70 ? 'var(--amber)' : 'var(--green)';
+  // "Safe to spend" = remaining headroom across all variable category budgets
+  const safeToSpend = Object.keys(S.settings.cats).reduce((sum, k) =>
+    sum + Math.max(0, catBudget(k) - catSpent(k)), 0);
   const payInfo   = getPaydayInfo();
   const expRows = exps.length === 0
     ? '<div class="empty">No variable expenses yet</div>'
@@ -939,34 +828,38 @@ function renderHome() {
       </div>
       <button class="arch-btn" onclick="archivePeriod()">Archive</button>
     </div>
-    <div class="card">
-      <div class="card-label">Income this period</div>
-      <div class="income-big">
-        <span class="prefix">$</span>
-        <input type="number" id="inc-inp" value="${cp.income||''}" placeholder="0.00" inputmode="decimal" onchange="setIncome(this.value)" />
+    <div class="hero-card">
+      <div class="hero-halves">
+        <div class="hero-half">
+          <div class="hero-lbl">To invest</div>
+          <div class="hero-val ${remaining < 0 ? 'r' : 'g'}">${remaining < 0 ? '−' : ''}${fmt(Math.abs(remaining))}</div>
+        </div>
+        <div class="hero-half" style="padding-left:16px">
+          <div class="hero-lbl">Safe to spend</div>
+          <div class="hero-val ${safeToSpend <= 0 ? 'r' : 'g'}">${safeToSpend < 0 ? '−' : ''}${fmt(Math.abs(safeToSpend))}</div>
+        </div>
       </div>
-    </div>
-    <div class="metrics">
-      <div class="metric"><div class="lbl">Fixed + giving</div><div class="val">${fmt(fixed+tithe)}</div></div>
-      <div class="metric"><div class="lbl">Variable spent</div><div class="val">${fmt(varSpent)}</div></div>
-      <div class="metric"><div class="lbl">Investable</div><div class="val ${remaining<0?'r':'g'}">${remaining<0?'−':''}${fmt(remaining)}</div></div>
-      <div class="metric"><div class="lbl">Savings rate</div><div class="val ${rate!==null&&rate<0?'r':'g'}">${rate!==null ? rate+'%' : '—'}</div></div>
+      <div class="hero-bottom">
+        ${_incEditing
+          ? `<input class="hero-income-edit" id="inc-hero" type="number" inputmode="decimal" value="${cp.income||''}" placeholder="0.00"
+               onblur="saveIncomeHero(this.value)"
+               onkeydown="if(event.key==='Enter')this.blur()"
+               autofocus/>`
+          : `<div class="hero-income" onclick="_incEditing=true;render()">
+               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+               Income ${fmt(income)}
+             </div>`
+        }
+        ${rate !== null ? `<div class="hero-rate${rate < 0 ? ' neg' : ''}">${rate}% savings</div>` : ''}
+      </div>
     </div>
     <div class="card">
       <div class="card-label">Breakdown</div>
-      ${renderBreakdownRows({cp, income, fixed, tithe, varSpent, remaining, titheBtn})}
-    </div>
-    <div class="card">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-        <div class="card-label" style="margin-bottom:0">Budget used</div>
-        <div style="font-size:11px;font-family:var(--font-mono);color:var(--muted)">${pct}%</div>
-      </div>
-      <div style="height:6px;background:var(--surface2);border-radius:3px;overflow:hidden;margin-bottom:6px">
-        <div style="height:100%;border-radius:3px;width:${pct}%;background:${barCol};transition:width .5s"></div>
-      </div>
-      <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--muted);font-family:var(--font-mono)">
-        <span>${fmt(totalOut)} committed</span><span>${fmt(Math.max(0,remaining))} free</span>
-      </div>
+      <div class="bkd-row"><span class="bkd-op"> </span><span class="bkd-name">Income</span><span class="bkd-val">${fmt(income)}</span></div>
+      <div class="bkd-row"><span class="bkd-op">−</span><span class="bkd-name">Fixed &amp; subscriptions</span><span class="bkd-val">${fmt(fixed)}</span></div>
+      <div class="bkd-row"><span class="bkd-op">−</span><span class="bkd-name" style="display:flex;align-items:center">Giving ${titheBtn}</span><span class="bkd-val">${fmt(tithe)}</span></div>
+      <div class="bkd-row"><span class="bkd-op">−</span><span class="bkd-name">Variable spent</span><span class="bkd-val">${fmt(varSpent)}</span></div>
+      <div class="bkd-row bkd-total"><span class="bkd-op">=</span><span class="bkd-name">Investable</span><span class="bkd-val ${remaining < 0 ? 'r' : 'g'}">${remaining < 0 ? '−' : ''}${fmt(Math.abs(remaining))}</span></div>
     </div>
     <div class="card">
       <div class="card-label">Variable expenses</div>
@@ -988,23 +881,7 @@ function renderHome() {
         <span class="sum-val" style="color:${projInvest<0?'var(--red)':'var(--green)'}">${projInvest<0?'−':''}${fmt(projInvest)}</span>
       </div>` : ''}
       ${!fixedRows && !planned.length ? '<div class="empty" style="padding:8px 0">No upcoming items · add subscriptions in Settings</div>' : ''}
-    </div>
-    <details style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:16px;margin-bottom:12px">
-      <summary style="display:flex;justify-content:space-between;align-items:center;outline:none;cursor:pointer">
-        <div class="card-label" style="margin-bottom:0">Customize layout</div>
-        <span class="summary-chevron">▾</span>
-      </summary>
-      <div style="margin-top:12px;font-size:12px;color:var(--muted);margin-bottom:12px">Drag to reorder the breakdown card. Use + / × to show or hide stats.</div>
-      ${(()=>{
-        const eo = Array.isArray(S.settings.breakdown) ? S.settings.breakdown : DEFAULT_BREAKDOWN;
-        const abs = [...Object.entries(BUILTIN_BREAKDOWN_LABELS).map(([id,label])=>({id,label,group:'built-in'})),...(S.settings.fixedCosts||[]).map(f=>({id:'sub:'+f.id,label:f.name,group:'subscription'}))];
-        const lbl = id => { const m=abs.find(x=>x.id===id); return m?m.label:id; };
-        const enRows = eo.map((id,i)=>`<div class="bd-row" data-bd-idx="${i}"><div class="bd-drag" onpointerdown="bdDragStart(event,${i})" title="Drag to reorder"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><line x1="2" y1="4" x2="12" y2="4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="2" y1="7" x2="12" y2="7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="2" y1="10" x2="12" y2="10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></div><div class="bd-name">${lbl(id)}</div><button class="bd-btn bd-rm" onclick="removeBreakdown('${id}')" title="Remove">×</button></div>`).join('');
-        const dis = abs.filter(x=>!eo.includes(x.id));
-        const disRows = dis.map(stat=>`<div class="bd-row dimmed"><div class="bd-name">${stat.label}${stat.group==='subscription'?'<span style="font-size:10px;color:var(--muted);font-family:var(--font-mono);margin-left:4px">sub</span>':''}</div><button class="bd-add-btn" onclick="addBreakdown('${stat.id}')">+ Add</button></div>`).join('');
-        return (enRows||'<div class="empty" style="padding:8px 0">No stats</div>') + (dis.length?`<div class="bd-section-label">Available</div>${disRows}`:'');
-      })()}
-    </details>`;
+    </div>`;
 }
 // ── CATEGORY BUDGETS ──────────────────────────────────────────────────────
 function renderCats() {
@@ -1722,7 +1599,7 @@ function quickDragEnd() {
 // ── Category long-press drag-to-reorder ───────────────────────────────────
 // A short tap on a card opens its edit panel; a long press (350ms) picks the
 // card up for dragging. Reorder commits by rebuilding S.settings.cats.
-// ── Category drag-to-reorder (handle-based, mirrors bdDragStart) ──────────
+// ── Category drag-to-reorder (handle-based, Pointer Events) ──────────────
 function catDragStart(e, idx) {
   e.preventDefault();
   const handle = e.currentTarget;
@@ -1810,12 +1687,7 @@ function addFixed() {
 }
 function delFixed(idx) {
   if (!confirm('Delete this fixed cost?')) return;
-  const id = S.settings.fixedCosts[idx]?.id;
   S.settings.fixedCosts.splice(idx, 1);
-  // If this subscription was in the breakdown layout, remove it
-  if (id && S.settings.breakdown) {
-    S.settings.breakdown = S.settings.breakdown.filter(s => s !== 'sub:' + id);
-  }
   save(); render();
 }
 function updateQuick(idx, field, val) {
@@ -1983,6 +1855,10 @@ function setIncome(v) {
   S.currentPeriod.income = parseFloat(v) || 0;
   save(); render();
 }
+function saveIncomeHero(val) {
+  _incEditing = false;
+  setIncome(val); // setIncome already calls save() and render()
+}
 function startPeriod() {
   if (!S.settings.lastPayday) {
     alert('Please set your Most Recent Payday in the Settings tab first!');
@@ -2082,7 +1958,7 @@ function resetAll() {
     currentPeriod: null, history: [],
     settings: {tithe: 10, titheAutoPaid: false, payFreq: 'biweekly', lastPayday: '',
       cats: {...DEFAULT_CATS}, fixedCosts: [...DEFAULT_FIXED], quickAdds: [...DEFAULT_QUICK],
-      breakdown: [...DEFAULT_BREAKDOWN], budgetAlerts: true}
+      budgetAlerts: true}
   };
   save(); render(); toast('All data cleared');
 }
