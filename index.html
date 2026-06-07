@@ -39,6 +39,10 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 .metric .val{font-size:20px;font-weight:500;font-family:var(--font-mono);letter-spacing:-.02em}
 .g{color:var(--green)}.r{color:var(--red)}.a{color:var(--amber)}
 .cat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);margin-bottom:12px;overflow:hidden}
+.cat-edit-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);margin-bottom:8px;overflow:hidden}
+.cat-edit-card.cat-dragging{box-shadow:0 8px 24px rgba(0,0,0,.5);border-color:var(--green)}
+.cat-edit-head{cursor:pointer;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+.cat-edit-card.cat-dragging .cat-edit-head{cursor:grabbing}
 .cat-header{display:flex;align-items:center;gap:10px;margin-bottom:10px}
 .pip{width:4px;border-radius:2px;flex-shrink:0}
 .cat-name{font-size:15px;font-weight:500;flex:1}
@@ -292,7 +296,7 @@ details[open] > summary .summary-chevron {
 <div id="toast"></div>
 <script>
 // ── VERSION ───────────────────────────────────────────────────────────────
-const APP_VERSION = '1.7.0';
+const APP_VERSION = '1.8.0';
 // ── DEFAULTS ──────────────────────────────────────────────────────────────
 const DEFAULT_CATS = {
   groceries: {label:'Groceries',     color:'#00c97a', monthly:200},
@@ -372,9 +376,11 @@ function load() {
       });
     }
     if (typeof S.settings.budgetAlerts === 'undefined') S.settings.budgetAlerts = true;
+    if (!Array.isArray(S.settings.recurring)) S.settings.recurring = [];
     if (S.currentPeriod && !Array.isArray(S.currentPeriod.planned)) S.currentPeriod.planned = [];
   } catch(e) {}
   checkAutoRollover();
+  processRecurring();
   // Re-sync carryovers in case past expenses were edited while the app was closed
   recomputeCarryoverChain();
 }
@@ -402,6 +408,35 @@ function ordinal(n) {
   n = parseInt(n) || 1;
   const s = ['th','st','nd','rd'], v = n % 100;
   return n + (s[(v-20)%10] || s[v] || s[0]);
+}
+const RECUR_LABELS = {weekly:'Weekly', biweekly:'Bi-weekly', monthly:'Monthly', bimonthly:'Bi-monthly'};
+function advanceDate(iso, freq) {
+  const d = new Date(iso + 'T00:00:00');
+  if      (freq === 'weekly')    d.setDate(d.getDate() + 7);
+  else if (freq === 'biweekly')  d.setDate(d.getDate() + 14);
+  else if (freq === 'monthly')   d.setMonth(d.getMonth() + 1);
+  else if (freq === 'bimonthly') d.setMonth(d.getMonth() + 2);
+  else                           d.setMonth(d.getMonth() + 1);
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+// Generate any recurring expenses that have come due into the current period.
+function processRecurring() {
+  if (!Array.isArray(S.settings.recurring) || !S.currentPeriod) return;
+  const today = todayISO();
+  let added = 0;
+  S.settings.recurring.forEach(r => {
+    let guard = 0;
+    while (r.nextISO && r.nextISO <= today && guard < 120) {
+      S.currentPeriod.expenses.push({
+        name: r.name, amount: r.amount, cat: r.cat,
+        date: isoToDisplay(r.nextISO), dateISO: r.nextISO,
+        ...(r.note && {note: r.note}), recurId: r.id
+      });
+      r.nextISO = advanceDate(r.nextISO, r.freq);
+      guard++; added++;
+    }
+  });
+  if (added) save();
 }
 // ── PAYDAY MATH ───────────────────────────────────────────────────────────
 const MS_DAY = 86400000;
@@ -967,8 +1002,10 @@ function renderCats() {
   const visibleCats = Object.entries(cats).filter(([k,c]) =>
     (c.monthly||0) > 0 || catSpent(k) > 0 || (S.currentPeriod?.carryover?.[k]||0) !== 0
   );
+  // In edit mode show every category (so all can be edited and reordered)
+  const list = _catsEditing ? Object.entries(cats) : visibleCats;
 
-  const cards = visibleCats.map(([k,c]) => {
+  const cards = list.map(([k,c]) => {
     const budget      = catBudget(k);
     const debt        = catDebt(k);
     const actualSpent = catSpent(k);
@@ -984,7 +1021,7 @@ function renderCats() {
         <div class="pip" style="background:${c.color};height:36px"></div>
         <div class="cat-name">${c.label}</div>
         <div class="cat-rem ${remClass}">${rem<0?'−':''}${fmt(rem)}</div>
-        <span class="summary-chevron">${_catsEditing ? (_catEditKey===k?'▴':'▾') : '▾'}</span>
+        <span class="summary-chevron">${_catsEditing ? (_catEditKey===k?'▴':'⠿') : '▾'}</span>
       </div>
       <div class="prog-track"><div class="prog-fill" style="width:${pct}%;background:${barCol}"></div></div>
       <div class="prog-labels">
@@ -1028,8 +1065,8 @@ function renderCats() {
             </button>
           </div>
         </div>` : '';
-      return `<div class="card" style="padding:0;cursor:pointer" onclick="openCatEdit('${k}')">
-        <div style="padding:16px${isOpen?';padding-bottom:12px':''}">
+      return `<div class="cat-edit-card">
+        <div class="cat-edit-head" style="padding:16px${isOpen?';padding-bottom:12px':''}" onpointerdown="catPointerDown(event,'${k}')">
           ${headerHtml}
         </div>
         ${editPanel}
@@ -1073,7 +1110,7 @@ function renderCats() {
 
   return `
     <div class="page-header" style="display:flex;align-items:flex-start;justify-content:space-between">
-      <div><h1>Budgets</h1><p>Tap a category to edit when in edit mode</p></div>
+      <div><h1>Budgets</h1><p>${_catsEditing ? 'Tap to edit · long-press &amp; drag to reorder' : 'Leftover rolls over each period'}</p></div>
       <button onclick="toggleCatsEdit()" style="background:none;border:1px solid var(--border);color:${_catsEditing?'var(--green)':'var(--muted)'};border-radius:8px;padding:6px 14px;font-size:13px;cursor:pointer;margin-top:4px;flex-shrink:0">${_catsEditing?'Done':'Edit'}</button>
     </div>
     ${cards || '<div class="card"><div class="empty">No spending tracked yet this period</div></div>'}
@@ -1105,6 +1142,17 @@ function renderLog() {
     </div>`;
   }).join('');
   const planCatOpts = Object.entries(S.settings.cats).map(([k,c]) => `<option value="${k}">${c.label}</option>`).join('');
+  const recurRows = (S.settings.recurring || []).map(r => {
+    const c = S.settings.cats[r.cat] || {label:r.cat||'—', color:'#555'};
+    return `<div class="quick-item">
+      <div class="pip" style="background:${c.color};height:28px"></div>
+      <div class="quick-info">
+        <div class="quick-name">${r.name}</div>
+        <div class="quick-sub">${fmt(r.amount)} · ${c.label} · ${RECUR_LABELS[r.freq]||r.freq} · next ${isoToDisplay(r.nextISO)}</div>
+      </div>
+      <button class="del-btn" onclick="delRecurring('${r.id}')">×</button>
+    </div>`;
+  }).join('');
   const s = S.settings;
   const quickEditRows = (s.quickAdds || []).map((q, i) => `
     <div class="quick-edit-row">
@@ -1134,6 +1182,20 @@ function renderLog() {
         <div class="field"><label>Category</label><select id="exp-cat">${catOpts}</select></div>
       </div>
       <div class="field"><label>Note (optional)</label><input type="text" id="exp-note" placeholder="e.g. reimbursable, one-time…" maxlength="100"/></div>
+      <div class="field"><label>Date</label><input type="date" id="exp-date" value="${todayISO()}"/></div>
+      <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:13px;margin:4px 0 12px">
+        <input type="checkbox" id="exp-recur" onchange="document.getElementById('exp-recur-wrap').style.display=this.checked?'block':'none'" style="width:18px;height:18px;accent-color:var(--green);cursor:pointer"/>
+        Recurring expense
+      </label>
+      <div class="field" id="exp-recur-wrap" style="display:none">
+        <label>Repeats every</label>
+        <select id="exp-recur-freq">
+          <option value="weekly">Week</option>
+          <option value="biweekly">2 weeks (bi-weekly)</option>
+          <option value="monthly" selected>Month</option>
+          <option value="bimonthly">2 months (bi-monthly)</option>
+        </select>
+      </div>
       <button class="btn btn-primary" onclick="addExpense()">Add to this period</button>
     </div>
     <div class="sec-div">Quick add</div>
@@ -1148,6 +1210,11 @@ function renderLog() {
       </div>
       <button class="btn btn-ghost" onclick="addPlanned()">Add to plan</button>
     </div>
+    ${(S.settings.recurring||[]).length ? `<div class="sec-div">Recurring</div>
+    <div class="card">
+      <div style="font-size:12px;color:var(--muted);margin-bottom:12px">Auto-added each period on schedule. Tap × to stop.</div>
+      ${recurRows}
+    </div>` : ''}
     <div class="sec-div">Manage quick adds</div>
     <div class="card">
       <div style="font-size:12px;color:var(--muted);margin-bottom:12px">Shortcuts that appear above. Choose Fixed $, % of Income, or % of Category Budget.</div>
@@ -1536,6 +1603,104 @@ function updateSetting(key, val) {
 }
 function toggleCatsEdit() { _catsEditing = !_catsEditing; _catEditKey = null; render(); }
 function openCatEdit(k) { _catEditKey = _catEditKey === k ? null : k; render(); }
+
+// ── Category long-press drag-to-reorder ───────────────────────────────────
+// A short tap on a card opens its edit panel; a long press (350ms) picks the
+// card up for dragging. Reorder commits by rebuilding S.settings.cats.
+let _catPress = null, _catDrag = null;
+function catPointerDown(e, k) {
+  if (e.button && e.button !== 0) return;
+  const head = e.currentTarget;
+  const card = head.closest('.cat-edit-card');
+  if (!card) return;
+  _catPress = {k, card, startX: e.clientX, startY: e.clientY, pointerId: e.pointerId,
+    timer: setTimeout(beginCatDrag, 350)};
+  document.addEventListener('pointermove',   catPressMove, {passive:false});
+  document.addEventListener('pointerup',     catPressUp);
+  document.addEventListener('pointercancel', catPressCancel);
+}
+function catPressMove(e) {
+  if (!_catPress) return;
+  if (_catDrag) { catDragMove(e); return; }
+  const dx = e.clientX - _catPress.startX, dy = e.clientY - _catPress.startY;
+  if (Math.abs(dx) > 8 || Math.abs(dy) > 8) { clearTimeout(_catPress.timer); cleanupCatPress(); }
+}
+function catPressUp() {
+  if (!_catPress) return;
+  if (_catDrag) { catDragEnd(); cleanupCatPress(); return; }
+  clearTimeout(_catPress.timer);
+  const k = _catPress.k;
+  cleanupCatPress();
+  openCatEdit(k);
+}
+function catPressCancel() {
+  if (!_catPress) return;
+  if (_catDrag) catDragEnd();
+  clearTimeout(_catPress.timer);
+  cleanupCatPress();
+}
+function cleanupCatPress() {
+  document.removeEventListener('pointermove',   catPressMove);
+  document.removeEventListener('pointerup',     catPressUp);
+  document.removeEventListener('pointercancel', catPressCancel);
+  _catPress = null;
+}
+function beginCatDrag() {
+  if (!_catPress) return;
+  const card = _catPress.card;
+  if (!card || !card.parentElement) return;
+  const allRows = Array.from(card.parentElement.querySelectorAll('.cat-edit-card'));
+  const startIdx = allRows.indexOf(card);
+  const centers  = allRows.map(r => { const b = r.getBoundingClientRect(); return b.top + b.height/2; });
+  _catDrag = {startIdx, currentIdx: startIdx, card, allRows, centers,
+    startY: _catPress.startY, rowH: card.getBoundingClientRect().height + 8};
+  card.classList.add('cat-dragging');
+  card.style.position = 'relative';
+  card.style.zIndex   = '30';
+  try { card.setPointerCapture(_catPress.pointerId); } catch(_) {}
+  if (navigator.vibrate) { try { navigator.vibrate(15); } catch(_) {} }
+}
+function catDragMove(e) {
+  if (!_catDrag) return;
+  e.preventDefault();
+  const dy = e.clientY - _catDrag.startY;
+  _catDrag.card.style.transform = `translateY(${dy}px)`;
+  // Nearest slot to the pointer becomes the target index
+  let newIdx = 0, best = Infinity;
+  _catDrag.centers.forEach((cy, i) => {
+    const d = Math.abs(e.clientY - cy);
+    if (d < best) { best = d; newIdx = i; }
+  });
+  if (newIdx !== _catDrag.currentIdx) {
+    _catDrag.currentIdx = newIdx;
+    _catDrag.allRows.forEach((r, i) => {
+      if (r === _catDrag.card) return;
+      let shift = 0;
+      if (newIdx > _catDrag.startIdx && i > _catDrag.startIdx && i <= newIdx) shift = -_catDrag.rowH;
+      if (newIdx < _catDrag.startIdx && i >= newIdx && i < _catDrag.startIdx) shift =  _catDrag.rowH;
+      r.style.transition = 'transform .18s cubic-bezier(0.16,1,0.3,1)';
+      r.style.transform  = `translateY(${shift}px)`;
+    });
+  }
+}
+function catDragEnd() {
+  if (!_catDrag) return;
+  const {startIdx, currentIdx, card, allRows} = _catDrag;
+  card.classList.remove('cat-dragging');
+  card.style.cssText = '';
+  allRows.forEach(r => { r.style.transition = ''; r.style.transform = ''; });
+  _catDrag = null;
+  if (currentIdx !== startIdx) {
+    const keys = Object.keys(S.settings.cats);
+    const [moved] = keys.splice(startIdx, 1);
+    keys.splice(currentIdx, 0, moved);
+    const reordered = {};
+    keys.forEach(kk => reordered[kk] = S.settings.cats[kk]);
+    S.settings.cats = reordered;
+    save();
+  }
+  render();
+}
 function setCatPerPeriod(k, val) {
   const ppm = S.settings.payFreq === 'weekly' ? 4 : S.settings.payFreq === 'monthly' ? 1 : 2;
   S.settings.cats[k].monthly = parseFloat(((parseFloat(val) || 0) * ppm).toFixed(2));
@@ -1775,6 +1940,9 @@ function addExpense() {
   const amt  = parseFloat(document.getElementById('exp-amt')?.value);
   const cat  = document.getElementById('exp-cat')?.value;
   const note = document.getElementById('exp-note')?.value?.trim() || '';
+  const dateISO = document.getElementById('exp-date')?.value || todayISO();
+  const recur   = document.getElementById('exp-recur')?.checked;
+  const freq    = document.getElementById('exp-recur-freq')?.value || 'monthly';
   if (!name)           { toast('Enter a description'); return; }
   if (isNaN(amt)||amt<=0) { toast('Enter a valid amount'); return; }
   if (!S.currentPeriod) {
@@ -1782,14 +1950,18 @@ function addExpense() {
     const most = getMostRecentPayday();
     S.currentPeriod = newPeriodObj(most ? most.toISOString().slice(0,10) : todayISO(), {});
   }
-  S.currentPeriod.expenses.push({name, amount: amt, cat, date: todayStr(), dateISO: todayISO(), ...(note && {note})});
-  save(); toast(`Added: ${name}`);
+  S.currentPeriod.expenses.push({name, amount: amt, cat, date: isoToDisplay(dateISO), dateISO, ...(note && {note})});
+  if (recur) {
+    if (!Array.isArray(S.settings.recurring)) S.settings.recurring = [];
+    S.settings.recurring.push({id: genId('rec'), name, amount: amt, cat, note, freq, nextISO: advanceDate(dateISO, freq)});
+  }
+  save(); toast(recur ? `Added & set to repeat ${RECUR_LABELS[freq]||freq}` : `Added: ${name}`);
   checkBudgetAlert(cat);
-  document.getElementById('exp-name').value = '';
-  document.getElementById('exp-amt').value  = '';
-  const noteEl = document.getElementById('exp-note');
-  if (noteEl) noteEl.value = '';
   switchTab('home');
+}
+function delRecurring(id) {
+  S.settings.recurring = (S.settings.recurring || []).filter(r => r.id !== id);
+  save(); render(); toast('Recurring stopped');
 }
 function quickAdd(i) {
   const q = S.settings.quickAdds[i];
