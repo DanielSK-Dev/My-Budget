@@ -949,7 +949,7 @@ function renderCats() {
           <div class="cat-stat-val" style="color:${carry>0?'var(--green)':carry<0?'var(--red)':'var(--muted)'}">${carry>0?'+':''}${carry!==0?fmt(Math.abs(carry)):'—'}</div>
         </div>
         <div class="cat-stat">
-          <div class="cat-stat-lbl">Total</div>
+          <div class="cat-stat-lbl">Available</div>
           <div class="cat-stat-val">${fmt(budget - debt)}</div>
         </div>
         <div class="cat-stat">
