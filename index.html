@@ -941,20 +941,20 @@ function renderCats() {
       <div class="prog-track"><div class="prog-fill" style="width:${pct}%;background:${barCol}"></div></div>
       <div class="cat-stats">
         <div class="cat-stat">
-          <div class="cat-stat-lbl">Budget</div>
+          <div class="cat-stat-lbl">Monthly</div>
           <div class="cat-stat-val">${fmt(base)}</div>
         </div>
         <div class="cat-stat">
           <div class="cat-stat-lbl">Rollover</div>
-          <div class="cat-stat-val" style="color:${carry>0?'var(--green)':carry<0?'var(--red)':'var(--muted)'}">${carry>0?'+':''}${carry!==0?fmt(Math.abs(carry)):'—'}</div>
+          <div class="cat-stat-val" style="color:${carry>0?'var(--green)':carry<0?'var(--red)':'var(--muted)'}">${carry>0?'+':carry<0?'−':''}${carry!==0?fmt(Math.abs(carry)):'—'}</div>
         </div>
         <div class="cat-stat">
-          <div class="cat-stat-lbl">Available</div>
+          <div class="cat-stat-lbl">Spendable</div>
           <div class="cat-stat-val">${fmt(budget - debt)}</div>
         </div>
         <div class="cat-stat">
           <div class="cat-stat-lbl">Spent</div>
-          <div class="cat-stat-val" style="color:${actualSpent>0?'var(--amber)':'var(--muted)'}">${fmt(actualSpent)}${debt>0?`<br><span style="font-size:10px;color:var(--red)">+${fmt(debt)} debt</span>`:''}</div>
+          <div class="cat-stat-val" style="color:${actualSpent>0?'var(--amber)':'var(--muted)'}">${fmt(actualSpent)}</div>
         </div>
       </div>`;
 
