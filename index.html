@@ -1159,6 +1159,14 @@ function renderLog() {
          <button class="add-btn" style="margin-top:8px" onclick="addQuick()">+ Add Quick Add</button>`
       : `<div class="card">${quickRows || '<div class="empty" style="padding:10px 0">No quick adds yet</div>'}</div>`}
 
+    <div class="sec-div" style="margin-top:20px">Recurring</div>
+    ${buildSubCards(S.settings)}
+    ${buildRecCards(S.settings)}
+    ${!S.settings.fixedCosts?.length && !S.settings.recurring?.length
+      ? '<div class="card"><div class="empty" style="padding:10px 0">No recurring items yet</div></div>'
+      : ''}
+    <button class="add-btn" style="margin-top:8px" onclick="addFixed()">+ Add Subscription</button>
+
 `;
 }
 // ── HISTORY ───────────────────────────────────────────────────────────────
@@ -1419,11 +1427,8 @@ function saveHistAdd(pid) {
   _histAdd = null; recomputeCarryoverChain(); save(); render(); toast(`Added: ${name}`);
 }
 // ── SETTINGS ──────────────────────────────────────────────────────────────
-function renderSettings() {
-  const s = S.settings;
-
-  // ─ Subscription cards (tap-to-edit) ─────────────────────────────────
-  const subCards = (s.fixedCosts || []).map((f, i) => {
+function buildSubCards(s) {
+  return (s.fixedCosts || []).map((f, i) => {
     const isDate = f.billingType === 'date';
     const isOpen = _fcEditIdx === i;
     const ppm    = s.payFreq === 'weekly' ? 4 : s.payFreq === 'monthly' ? 1 : 2;
@@ -1466,8 +1471,8 @@ function renderSettings() {
       </div>
     </div>` : '';
     const schedLabel = isDate
-      ? `Due day ${f.billingDay||1} · $${(parseFloat(f.monthly)||0).toFixed(0)}/mo`
-      : `Each period · ${fmt(perPd)}/pd`;
+      ? `Subscription · due day ${f.billingDay||1}`
+      : `Subscription · each period · ${fmt(perPd)}/pd`;
     return `<div class="rec-card">
       <div class="rec-card-head" onclick="openFcEdit(${i})">
         <div class="pip" style="background:${f.color||'#888'};height:32px"></div>
@@ -1475,15 +1480,15 @@ function renderSettings() {
           <div class="rec-card-name">${f.name||'Unnamed'}</div>
           <div class="rec-card-sub">${schedLabel}${f.cat&&s.cats[f.cat]?' · '+s.cats[f.cat].label:''}</div>
         </div>
-        <div class="rec-card-amt">${fmt(parseFloat(f.monthly)||0)}</div>
+        <div class="rec-card-amt">${fmt(parseFloat(f.monthly)||0)}/mo</div>
         <span style="color:var(--muted);font-size:13px;margin-left:8px">${isOpen?'▴':'▾'}</span>
       </div>
       ${body}
     </div>`;
   }).join('');
-
-  // ─ Recurring expense template cards (tap-to-edit) ────────────────────
-  const recCards = (s.recurring || []).map(r => {
+}
+function buildRecCards(s) {
+  return (s.recurring || []).map(r => {
     const isOpen = _recEditId === r.id;
     const c = s.cats[r.cat] || {color:'#555', label:'—'};
     const catOpts = Object.entries(s.cats).map(([k,cc]) =>
@@ -1531,26 +1536,12 @@ function renderSettings() {
       ${body}
     </div>`;
   }).join('');
+}
+function renderSettings() {
+  const s = S.settings;
 
   return `
     <div class="page-header"><h1>Settings</h1></div>
-
-    <!-- ── Recurring / Subscriptions ── -->
-    <div class="sec-div">Subscriptions</div>
-    <div style="font-size:12px;color:var(--muted);margin-bottom:10px;padding:0 2px">
-      Monthly bills that appear in the Upcoming section.
-      <b style="color:var(--text)">Each period</b> splits the monthly amount;
-      <b style="color:var(--text)">Specific day</b> charges the full amount in the billing period only.
-    </div>
-    ${subCards || '<div class="card"><div class="empty" style="padding:10px 0">No subscriptions yet</div></div>'}
-    <button class="add-btn" onclick="addFixed()">+ Add Subscription</button>
-
-    <div class="sec-div" style="margin-top:20px">Recurring expenses</div>
-    <div style="font-size:12px;color:var(--muted);margin-bottom:10px;padding:0 2px">Auto-added to each period on schedule. Set up when adding an expense with the Recurring checkbox.</div>
-    ${recCards || '<div class="card"><div class="empty" style="padding:10px 0">No recurring expenses — add one on the Add tab</div></div>'}
-
-    <!-- ── System / Utility controls ── -->
-    <div class="sec-div" style="margin-top:20px">System &amp; utilities</div>
 
     <div class="card">
       <div class="card-label">Pay period schedule</div>
