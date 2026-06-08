@@ -941,12 +941,8 @@ function renderCats() {
       <div class="prog-track"><div class="prog-fill" style="width:${pct}%;background:${barCol}"></div></div>
       <div class="cat-stats">
         <div class="cat-stat">
-          <div class="cat-stat-lbl">Period</div>
+          <div class="cat-stat-lbl">Budget</div>
           <div class="cat-stat-val">${fmt(base)}</div>
-        </div>
-        <div class="cat-stat">
-          <div class="cat-stat-lbl">Spent</div>
-          <div class="cat-stat-val" style="color:${actualSpent>0?'var(--amber)':'var(--muted)'}">${fmt(actualSpent)}${debt>0?`<br><span style="font-size:10px;color:var(--red)">+${fmt(debt)} debt</span>`:''}</div>
         </div>
         <div class="cat-stat">
           <div class="cat-stat-lbl">Rollover</div>
@@ -955,6 +951,10 @@ function renderCats() {
         <div class="cat-stat">
           <div class="cat-stat-lbl">Total</div>
           <div class="cat-stat-val">${fmt(budget - debt)}</div>
+        </div>
+        <div class="cat-stat">
+          <div class="cat-stat-lbl">Spent</div>
+          <div class="cat-stat-val" style="color:${actualSpent>0?'var(--amber)':'var(--muted)'}">${fmt(actualSpent)}${debt>0?`<br><span style="font-size:10px;color:var(--red)">+${fmt(debt)} debt</span>`:''}</div>
         </div>
       </div>`;
 
