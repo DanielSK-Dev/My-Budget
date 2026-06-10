@@ -145,6 +145,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 .cat-card summary{user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;touch-action:pan-y}
 .cat-card{transition:transform .15s ease}
 .cat-card.swiping{transition:none}
+.hist-exp-row{transition:transform .15s ease;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;touch-action:pan-y}
+.hist-exp-row.swiping{transition:none;position:relative;z-index:1;background:var(--surface2)}
 /* Compact breakdown waterfall */
 .bkd-row{display:flex;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px}
 .bkd-row:last-child{border-bottom:none}
@@ -366,7 +368,7 @@ details[open] > summary .summary-chevron {
 <div id="toast"></div>
 <script>
 // ── VERSION ───────────────────────────────────────────────────────────────
-const APP_VERSION = '1.11.0';
+const APP_VERSION = '1.12.0';
 // ── DEFAULTS ──────────────────────────────────────────────────────────────
 const DEFAULT_CATS = {
   groceries: {label:'Groceries',     color:'#00c97a', monthly:200},
@@ -406,8 +408,9 @@ let _catsEditing    = false; // toggles budget edit mode on Budgets tab
 let _catEditKey     = null;  // which category is open in edit mode
 let _catDrag        = null;  // category drag-to-reorder state
 let _catSheet       = null;  // cat key whose long-press action sheet is open
-let _catGesture     = null;  // swipe / long-press tracking on category cards
-let _catSuppressClick = false; // swallow the click that follows a swipe or long-press
+let _histSheet      = null;  // {pid, ei} — history expense whose action sheet is open
+let _gesture        = null;  // shared swipe / long-press tracking state
+let _gestSuppressClick = false; // swallow the click that follows a swipe or long-press
 let _quickEditing   = false; // toggles quick-add edit mode on Add tab
 let _quickEditKey   = null;  // which quick add is open in edit mode
 let _quickDrag      = null;  // quick add drag-to-reorder state
@@ -765,7 +768,7 @@ let TAB = 'home';
 function switchTab(t) {
   TAB = t;
   _incEditing = false;
-  _histEdit = null; _histAdd = null; _catsEditing = false; _catEditKey = null; _quickEditing = false; _quickEditKey = null; _catSheet = null;
+  _histEdit = null; _histAdd = null; _catsEditing = false; _catEditKey = null; _quickEditing = false; _quickEditKey = null; _catSheet = null; _histSheet = null;
   _fcEditIdx = null; _recEditId = null;
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === t));
   render();
@@ -1117,12 +1120,13 @@ function renderCats() {
       : '<div style="padding:8px 0;color:var(--muted);font-size:12px">No transactions yet.</div>';
     return `<details class="cat-card" style="padding:0">
       <summary style="padding:16px;outline:none;cursor:pointer;display:block"
-        onpointerdown="catGestureStart(event,'${k}')"
-        onpointermove="catGestureMove(event)"
-        onpointerup="catGestureEnd()"
-        onpointercancel="catGestureCancel()"
+        onpointerdown="gestStart(event,'.cat-card',()=>{_catsEditing=true;_catEditKey='${k}';render()},()=>{_catSheet='${k}';render()})"
+        onpointermove="gestMove(event)"
+        onpointerup="gestEnd()"
+        onpointercancel="gestCancel()"
+        onpointerleave="gestLeave()"
         oncontextmenu="event.preventDefault()"
-        onclick="if(_catSuppressClick){_catSuppressClick=false;event.preventDefault();}">
+        onclick="if(_gestSuppressClick){_gestSuppressClick=false;event.preventDefault();}">
         ${headerHtml}
       </summary>
       <div class="hist-exps-list" style="padding:14px 16px 16px;margin-top:0">
@@ -1304,7 +1308,13 @@ function buildCatSummaryHtml(period) {
 }
 function renderHistExpRow(pid, ei, e) {
   const c = S.settings.cats[e.cat] || {label: e.cat, color: '#555'};
-  return `<div class="hist-exp-row">
+  return `<div class="hist-exp-row"
+    onpointerdown="gestStart(event,'.hist-exp-row',()=>startHistEdit('${pid}',${ei}),()=>openHistSheet('${pid}',${ei}))"
+    onpointermove="gestMove(event)"
+    onpointerup="gestEnd()"
+    onpointercancel="gestCancel()"
+    onpointerleave="gestLeave()"
+    oncontextmenu="event.preventDefault()">
     <span class="hist-exp-date">${e.date || ''}</span>
     <div class="pip" style="background:${c.color};height:14px;margin:0 2px"></div>
     <span class="hist-exp-name" title="${e.name}">${e.name}</span>
@@ -1426,6 +1436,17 @@ function renderHistory() {
       <div class="ins-trend-amt">${fmt(avg)}/pd</div>
     </div>`;
   }).join('') || '<div class="empty">Not enough data yet</div>';
+  const sheetExp  = _histSheet ? getPeriodById(_histSheet.pid)?.expenses?.[_histSheet.ei] : null;
+  const histSheet = sheetExp ? `
+    <div class="sheet-overlay" onclick="closeHistSheet()">
+      <div class="sheet" onclick="event.stopPropagation()">
+        <div class="sheet-title">${sheetExp.name} · ${fmt(sheetExp.amount)}</div>
+        <button class="sheet-btn" onclick="histSheetEdit()">Edit</button>
+        <button class="sheet-btn danger" onclick="histSheetDel()">Delete</button>
+        <button class="sheet-btn cancel" onclick="closeHistSheet()">Cancel</button>
+      </div>
+    </div>` : '';
+
   const rows = all.length === 0
     ? '<div class="empty">No periods yet</div>'
     : all.map(({p, pid}) => {
@@ -1495,7 +1516,8 @@ function renderHistory() {
       ${trendRows}
     </div>
     <div class="sec-div" style="margin-top:8px">Period log</div>
-    ${rows}`;
+    ${rows}
+    ${histSheet}`;
 }
 // ── HISTORY EDIT / ADD ACTIONS ────────────────────────────────────────────
 function startHistEdit(pid, ei) { _histAdd = null; _histEdit = {pid, ei}; render(); }
@@ -1735,66 +1757,72 @@ function toggleQuickEdit() { _quickEditing = !_quickEditing; _quickEditKey = nul
 function openQuickEdit(i) { _quickEditKey = _quickEditKey === i ? null : i; render(); }
 function openCatEdit(k) { _catEditKey = _catEditKey === k ? null : k; render(); }
 
-// ── Category card gestures: swipe → edit, long-press → action sheet ──────
-function suppressNextCatClick() {
-  _catSuppressClick = true;
-  setTimeout(() => _catSuppressClick = false, 400);
+// ── Swipe / long-press gestures (category cards & history rows) ──────────
+function suppressNextGestClick() {
+  _gestSuppressClick = true;
+  setTimeout(() => _gestSuppressClick = false, 400);
 }
-function catGestureStart(e, k) {
+function gestStart(e, sel, onSwipe, onHold) {
   if (e.pointerType === 'mouse' && e.button !== 0) return;
-  const card = e.currentTarget.closest('.cat-card');
-  _catGesture = {
-    k, card, x: e.clientX, y: e.clientY, dx: 0, swiping: false,
+  const el = e.currentTarget.closest(sel) || e.currentTarget;
+  _gesture = {
+    el, x: e.clientX, y: e.clientY, dx: 0, swiping: false, onSwipe,
     lpTimer: setTimeout(() => {
-      if (!_catGesture || _catGesture.swiping) return;
-      _catGesture = null;
-      card.classList.remove('swiping');
-      card.style.transform = '';
-      suppressNextCatClick();
+      if (!_gesture || _gesture.swiping) return;
+      _gesture = null;
+      el.classList.remove('swiping');
+      el.style.transform = '';
+      suppressNextGestClick();
       if (navigator.vibrate) navigator.vibrate(10);
-      _catSheet = k; render();
+      onHold();
     }, 500)
   };
-  e.currentTarget.setPointerCapture(e.pointerId);
 }
-function catGestureMove(e) {
-  if (!_catGesture) return;
-  const dx = e.clientX - _catGesture.x, dy = e.clientY - _catGesture.y;
-  if (!_catGesture.swiping) {
+function gestMove(e) {
+  if (!_gesture) return;
+  const dx = e.clientX - _gesture.x, dy = e.clientY - _gesture.y;
+  if (!_gesture.swiping) {
     // Vertical movement means the user is scrolling — bail out entirely
-    if (Math.abs(dy) > 12 && Math.abs(dy) > Math.abs(dx)) { catGestureCancel(); return; }
+    if (Math.abs(dy) > 12 && Math.abs(dy) > Math.abs(dx)) { gestCancel(); return; }
     if (Math.abs(dx) > 12) {
-      _catGesture.swiping = true;
-      clearTimeout(_catGesture.lpTimer);
-      _catGesture.card.classList.add('swiping');
+      _gesture.swiping = true;
+      clearTimeout(_gesture.lpTimer);
+      _gesture.el.classList.add('swiping');
+      // Capture only once a swipe starts so plain taps on inner buttons still work
+      try { _gesture.el.setPointerCapture(e.pointerId); } catch {}
     }
   }
-  if (_catGesture.swiping) {
-    _catGesture.dx = dx;
-    _catGesture.card.style.transform = `translateX(${Math.max(-90, Math.min(90, dx))}px)`;
+  if (_gesture.swiping) {
+    _gesture.dx = dx;
+    _gesture.el.style.transform = `translateX(${Math.max(-90, Math.min(90, dx))}px)`;
   }
 }
-function catGestureEnd() {
-  if (!_catGesture) return;
-  const g = _catGesture; _catGesture = null;
+function gestEnd() {
+  if (!_gesture) return;
+  const g = _gesture; _gesture = null;
   clearTimeout(g.lpTimer);
-  g.card.classList.remove('swiping');
-  g.card.style.transform = '';
+  g.el.classList.remove('swiping');
+  g.el.style.transform = '';
   if (g.swiping) {
-    suppressNextCatClick();
-    if (Math.abs(g.dx) > 60) { _catsEditing = true; _catEditKey = g.k; render(); }
+    suppressNextGestClick();
+    if (Math.abs(g.dx) > 60) g.onSwipe();
   }
 }
-function catGestureCancel() {
-  if (!_catGesture) return;
-  clearTimeout(_catGesture.lpTimer);
-  _catGesture.card.classList.remove('swiping');
-  _catGesture.card.style.transform = '';
-  _catGesture = null;
+function gestCancel() {
+  if (!_gesture) return;
+  clearTimeout(_gesture.lpTimer);
+  _gesture.el.classList.remove('swiping');
+  _gesture.el.style.transform = '';
+  _gesture = null;
 }
+function gestLeave() { if (_gesture && !_gesture.swiping) gestCancel(); }
 function closeCatSheet() { _catSheet = null; render(); }
 function sheetEditCat()  { const k = _catSheet; _catSheet = null; _catsEditing = true; _catEditKey = k; render(); }
 function sheetDelCat()   { const k = _catSheet; _catSheet = null; render(); delCat(k); }
+function openHistSheet(pid, ei) { _histSheet = {pid, ei}; render(); }
+function closeHistSheet()       { _histSheet = null; render(); }
+function histSheetEdit() { const s = _histSheet; _histSheet = null; startHistEdit(s.pid, s.ei); }
+function histSheetDel()  { const s = _histSheet; _histSheet = null; render(); delHistExp(s.pid, s.ei); }
 
 // ── Quick add drag-to-reorder (handle-based, mirrors catDragStart) ────────
 function quickDragStart(e, idx) {
