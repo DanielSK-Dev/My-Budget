@@ -132,6 +132,19 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 .cat-hist-bar{width:100%;max-width:34px;border-radius:3px 3px 0 0;min-height:2px}
 .cat-hist-amt{font-size:9px;font-family:var(--font-mono);color:var(--muted);height:12px}
 .cat-hist-date{font-size:9px;font-family:var(--font-mono);color:var(--muted)}
+/* Category action sheet (long-press) */
+.sheet-overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:200;display:flex;align-items:flex-end;animation:fadeIn .15s ease}
+.sheet{background:var(--surface);border:1px solid var(--border);border-radius:16px 16px 0 0;width:100%;max-width:520px;margin:0 auto;padding:8px 16px calc(16px + env(safe-area-inset-bottom));animation:sheetUp .2s ease}
+.sheet-title{font-size:12px;color:var(--muted);text-align:center;padding:10px 0 12px;font-family:var(--font-mono);text-transform:uppercase;letter-spacing:.08em}
+.sheet-btn{display:block;width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:10px;padding:13px;font-size:15px;cursor:pointer;margin-bottom:8px;font-family:inherit}
+.sheet-btn:active{opacity:.7}
+.sheet-btn.danger{color:var(--red);border-color:var(--red)}
+.sheet-btn.cancel{background:none;color:var(--muted);border:none;margin-bottom:0}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes sheetUp{from{transform:translateY(40px);opacity:0}to{transform:translateY(0);opacity:1}}
+.cat-card summary{user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;touch-action:pan-y}
+.cat-card{transition:transform .15s ease}
+.cat-card.swiping{transition:none}
 /* Compact breakdown waterfall */
 .bkd-row{display:flex;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px}
 .bkd-row:last-child{border-bottom:none}
@@ -353,7 +366,7 @@ details[open] > summary .summary-chevron {
 <div id="toast"></div>
 <script>
 // ── VERSION ───────────────────────────────────────────────────────────────
-const APP_VERSION = '1.10.1';
+const APP_VERSION = '1.11.0';
 // ── DEFAULTS ──────────────────────────────────────────────────────────────
 const DEFAULT_CATS = {
   groceries: {label:'Groceries',     color:'#00c97a', monthly:200},
@@ -392,6 +405,9 @@ let _catSuggestTimer = null; // debounce handle for smart categorization
 let _catsEditing    = false; // toggles budget edit mode on Budgets tab
 let _catEditKey     = null;  // which category is open in edit mode
 let _catDrag        = null;  // category drag-to-reorder state
+let _catSheet       = null;  // cat key whose long-press action sheet is open
+let _catGesture     = null;  // swipe / long-press tracking on category cards
+let _catSuppressClick = false; // swallow the click that follows a swipe or long-press
 let _quickEditing   = false; // toggles quick-add edit mode on Add tab
 let _quickEditKey   = null;  // which quick add is open in edit mode
 let _quickDrag      = null;  // quick add drag-to-reorder state
@@ -749,7 +765,7 @@ let TAB = 'home';
 function switchTab(t) {
   TAB = t;
   _incEditing = false;
-  _histEdit = null; _histAdd = null; _catsEditing = false; _catEditKey = null; _quickEditing = false; _quickEditKey = null;
+  _histEdit = null; _histAdd = null; _catsEditing = false; _catEditKey = null; _quickEditing = false; _quickEditKey = null; _catSheet = null;
   _fcEditIdx = null; _recEditId = null;
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === t));
   render();
@@ -1100,7 +1116,13 @@ function renderCats() {
       ? debtRow + expRows
       : '<div style="padding:8px 0;color:var(--muted);font-size:12px">No transactions yet.</div>';
     return `<details class="cat-card" style="padding:0">
-      <summary style="padding:16px;outline:none;cursor:pointer;display:block">
+      <summary style="padding:16px;outline:none;cursor:pointer;display:block"
+        onpointerdown="catGestureStart(event,'${k}')"
+        onpointermove="catGestureMove(event)"
+        onpointerup="catGestureEnd()"
+        onpointercancel="catGestureCancel()"
+        oncontextmenu="event.preventDefault()"
+        onclick="if(_catSuppressClick){_catSuppressClick=false;event.preventDefault();}">
         ${headerHtml}
       </summary>
       <div class="hist-exps-list" style="padding:14px 16px 16px;margin-top:0">
@@ -1115,9 +1137,19 @@ function renderCats() {
     ? `<button class="add-btn" style="margin-top:8px" onclick="addCat()">+ Add Category</button>`
     : '';
 
+  const sheet = _catSheet && cats[_catSheet] ? `
+    <div class="sheet-overlay" onclick="closeCatSheet()">
+      <div class="sheet" onclick="event.stopPropagation()">
+        <div class="sheet-title">${cats[_catSheet].label}</div>
+        <button class="sheet-btn" onclick="sheetEditCat()">Edit</button>
+        <button class="sheet-btn danger" onclick="sheetDelCat()">Delete</button>
+        <button class="sheet-btn cancel" onclick="closeCatSheet()">Cancel</button>
+      </div>
+    </div>` : '';
+
   return `
     <div class="page-header" style="display:flex;align-items:flex-start;justify-content:space-between">
-      <div><h1>Budgets</h1><p>${_catsEditing ? 'Tap to edit · long-press &amp; drag to reorder' : 'Leftover rolls over each period'}</p></div>
+      <div><h1>Budgets</h1><p>${_catsEditing ? 'Tap to edit · long-press &amp; drag to reorder' : 'Swipe to edit · hold for options'}</p></div>
       <button onclick="toggleCatsEdit()" style="background:none;border:1px solid var(--border);color:${_catsEditing?'var(--green)':'var(--muted)'};border-radius:8px;padding:6px 14px;font-size:13px;cursor:pointer;margin-top:4px;flex-shrink:0">${_catsEditing?'Done':'Edit'}</button>
     </div>
     ${cards || '<div class="card"><div class="empty">No spending tracked yet this period</div></div>'}
@@ -1131,7 +1163,8 @@ function renderCats() {
         </select>
       </div>
     </div>` : ''}
-    ${addBtn}`;
+    ${addBtn}
+    ${sheet}`;
 }
 // ── ADD EXPENSE ───────────────────────────────────────────────────────────
 function renderLog() {
@@ -1701,6 +1734,67 @@ function toggleCatsEdit()  { _catsEditing = !_catsEditing; _catEditKey = null; r
 function toggleQuickEdit() { _quickEditing = !_quickEditing; _quickEditKey = null; render(); }
 function openQuickEdit(i) { _quickEditKey = _quickEditKey === i ? null : i; render(); }
 function openCatEdit(k) { _catEditKey = _catEditKey === k ? null : k; render(); }
+
+// ── Category card gestures: swipe → edit, long-press → action sheet ──────
+function suppressNextCatClick() {
+  _catSuppressClick = true;
+  setTimeout(() => _catSuppressClick = false, 400);
+}
+function catGestureStart(e, k) {
+  if (e.pointerType === 'mouse' && e.button !== 0) return;
+  const card = e.currentTarget.closest('.cat-card');
+  _catGesture = {
+    k, card, x: e.clientX, y: e.clientY, dx: 0, swiping: false,
+    lpTimer: setTimeout(() => {
+      if (!_catGesture || _catGesture.swiping) return;
+      _catGesture = null;
+      card.classList.remove('swiping');
+      card.style.transform = '';
+      suppressNextCatClick();
+      if (navigator.vibrate) navigator.vibrate(10);
+      _catSheet = k; render();
+    }, 500)
+  };
+  e.currentTarget.setPointerCapture(e.pointerId);
+}
+function catGestureMove(e) {
+  if (!_catGesture) return;
+  const dx = e.clientX - _catGesture.x, dy = e.clientY - _catGesture.y;
+  if (!_catGesture.swiping) {
+    // Vertical movement means the user is scrolling — bail out entirely
+    if (Math.abs(dy) > 12 && Math.abs(dy) > Math.abs(dx)) { catGestureCancel(); return; }
+    if (Math.abs(dx) > 12) {
+      _catGesture.swiping = true;
+      clearTimeout(_catGesture.lpTimer);
+      _catGesture.card.classList.add('swiping');
+    }
+  }
+  if (_catGesture.swiping) {
+    _catGesture.dx = dx;
+    _catGesture.card.style.transform = `translateX(${Math.max(-90, Math.min(90, dx))}px)`;
+  }
+}
+function catGestureEnd() {
+  if (!_catGesture) return;
+  const g = _catGesture; _catGesture = null;
+  clearTimeout(g.lpTimer);
+  g.card.classList.remove('swiping');
+  g.card.style.transform = '';
+  if (g.swiping) {
+    suppressNextCatClick();
+    if (Math.abs(g.dx) > 60) { _catsEditing = true; _catEditKey = g.k; render(); }
+  }
+}
+function catGestureCancel() {
+  if (!_catGesture) return;
+  clearTimeout(_catGesture.lpTimer);
+  _catGesture.card.classList.remove('swiping');
+  _catGesture.card.style.transform = '';
+  _catGesture = null;
+}
+function closeCatSheet() { _catSheet = null; render(); }
+function sheetEditCat()  { const k = _catSheet; _catSheet = null; _catsEditing = true; _catEditKey = k; render(); }
+function sheetDelCat()   { const k = _catSheet; _catSheet = null; render(); delCat(k); }
 
 // ── Quick add drag-to-reorder (handle-based, mirrors catDragStart) ────────
 function quickDragStart(e, idx) {
