@@ -353,7 +353,7 @@ details[open] > summary .summary-chevron {
 <div id="toast"></div>
 <script>
 // ── VERSION ───────────────────────────────────────────────────────────────
-const APP_VERSION = '1.10.0';
+const APP_VERSION = '1.10.1';
 // ── DEFAULTS ──────────────────────────────────────────────────────────────
 const DEFAULT_CATS = {
   groceries: {label:'Groceries',     color:'#00c97a', monthly:200},
@@ -973,7 +973,7 @@ function buildCatHistoryHtml(k, color) {
     const isCur = i === periods.length - 1 && p === S.currentPeriod;
     const lbl = p.startDateISO
       ? new Date(p.startDateISO + 'T00:00:00').toLocaleDateString('en-US',{month:'numeric',day:'numeric'})
-      : '';
+      : (p.startDate || '').replace(/,\s*\d{4}$/, '');
     return `<div class="cat-hist-col">
       <div class="cat-hist-amt">${spend[i] > 0 ? '$' + Math.round(spend[i]) : ''}</div>
       <div class="cat-hist-bar" style="height:${h}px;background:${color};opacity:${isCur?'1':'.55'}"></div>
