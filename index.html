@@ -120,6 +120,18 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 .hero-income-edit{background:var(--surface2);border:1px solid var(--green);border-radius:8px;color:var(--text);font-family:var(--font-mono);font-size:15px;padding:5px 10px;width:130px;outline:none}
 .hero-rate{font-size:11px;font-family:var(--font-mono);padding:3px 9px;border-radius:20px;background:var(--green-dim);color:var(--green)}
 .hero-rate.neg{background:var(--red-dim);color:var(--red)}
+/* Spending velocity (pace) inside the hero card */
+.hero-pace{margin-top:14px}
+.hero-pace-track{position:relative;height:6px;background:var(--surface2);border-radius:3px}
+.hero-pace-fill{height:100%;border-radius:3px;transition:width .5s}
+.hero-pace-marker{position:absolute;top:-3px;width:2px;height:12px;background:var(--text);border-radius:1px;transform:translateX(-1px);opacity:.7}
+.hero-pace-lbl{font-size:10px;color:var(--muted);font-family:var(--font-mono);margin-top:6px}
+/* Category history mini bar chart */
+.cat-hist-bars{display:flex;align-items:flex-end;gap:8px}
+.cat-hist-col{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px}
+.cat-hist-bar{width:100%;max-width:34px;border-radius:3px 3px 0 0;min-height:2px}
+.cat-hist-amt{font-size:9px;font-family:var(--font-mono);color:var(--muted);height:12px}
+.cat-hist-date{font-size:9px;font-family:var(--font-mono);color:var(--muted)}
 /* Compact breakdown waterfall */
 .bkd-row{display:flex;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px}
 .bkd-row:last-child{border-bottom:none}
@@ -137,13 +149,14 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 .bkd-cat-left.r{color:var(--red)}
 .field{display:flex;flex-direction:column;gap:6px;margin-bottom:12px}
 .field label{font-size:11px;color:var(--muted);letter-spacing:.06em;font-family:var(--font-mono)}
-input[type=text],input[type=number],input[type=date],select{
+input[type=text],input[type=number],input[type=date],select,textarea{
   background:var(--surface2);border:1px solid var(--border);border-radius:8px;
   color:var(--text);font-family:var(--font);font-size:16px;padding:12px 14px;
   width:100%;outline:none;transition:border-color .2s;-webkit-appearance:none;
 }
+textarea{resize:vertical;min-height:56px;line-height:1.45;font-size:14px}
 input[type=date]::-webkit-calendar-picker-indicator { filter: invert(1); opacity: 0.5; }
-input:focus,select:focus{border-color:var(--green)}
+input:focus,select:focus,textarea:focus{border-color:var(--green)}
 select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23666' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 14px center;padding-right:36px}
 select option{background:#1e1e1e}
 .row-fields{display:grid;grid-template-columns:1fr 1fr;gap:10px}
@@ -340,7 +353,7 @@ details[open] > summary .summary-chevron {
 <div id="toast"></div>
 <script>
 // ── VERSION ───────────────────────────────────────────────────────────────
-const APP_VERSION = '1.9.0';
+const APP_VERSION = '1.10.0';
 // ── DEFAULTS ──────────────────────────────────────────────────────────────
 const DEFAULT_CATS = {
   groceries: {label:'Groceries',     color:'#00c97a', monthly:200},
@@ -771,6 +784,32 @@ function renderHome() {
   const remaining = income - totalOut;
   const rate      = income > 0 ? Math.round(remaining / income * 100) : null;
   const payInfo   = getPaydayInfo();
+  // Spending velocity: % of variable budget used vs % of the period elapsed
+  const spendable = Object.keys(S.settings.cats).reduce((sum, k) =>
+    sum + Math.max(0, catBudget(k) - catDebt(k)), 0);
+  let paceHtml = '';
+  const range = getPeriodDateRange(cp);
+  if (range && spendable > 0) {
+    const now      = new Date(); now.setHours(0,0,0,0);
+    const totalMs  = (range.end - range.start) + MS_DAY;
+    const elapsed  = Math.max(0, Math.min(totalMs, (now - range.start) + MS_DAY));
+    const elapsedPct = Math.round(elapsed / totalMs * 100);
+    const spentPct   = Math.min(100, Math.round(varSpent / spendable * 100));
+    const diff       = spentPct - elapsedPct;
+    const verdict    = diff > 5  ? {label:'Ahead of pace', col:'var(--red)'}
+                     : diff < -5 ? {label:'Under pace',    col:'var(--green)'}
+                     :             {label:'On pace',       col:'var(--green)'};
+    paceHtml = `
+      <div class="hero-pace">
+        <div class="hero-pace-track">
+          <div class="hero-pace-fill" style="width:${spentPct}%;background:${verdict.col}"></div>
+          <div class="hero-pace-marker" style="left:${elapsedPct}%" title="Today"></div>
+        </div>
+        <div class="hero-pace-lbl">
+          <span style="color:${verdict.col}">${verdict.label}</span> · ${spentPct}% spent, ${elapsedPct}% of period elapsed
+        </div>
+      </div>`;
+  }
   // Per-category remaining budget — a tiny "what's left" strip in the breakdown
   const catsLeftRows = Object.entries(S.settings.cats).map(([k, c]) => {
     const left = catBudget(k) - catSpent(k) - catDebt(k);
@@ -855,7 +894,7 @@ function renderHome() {
     <div class="hero-card">
       <div class="hero-halves">
         <div class="hero-half">
-          <div class="hero-lbl">To invest</div>
+          <div class="hero-lbl">To save</div>
           <div class="hero-val ${remaining < 0 ? 'r' : 'g'}">${remaining < 0 ? '−' : ''}${fmt(Math.abs(remaining))}</div>
         </div>
         <div class="hero-half" style="padding-left:16px">
@@ -863,6 +902,7 @@ function renderHome() {
           <div class="hero-val">${fmt(varSpent)}</div>
         </div>
       </div>
+      ${paceHtml}
       <div class="hero-bottom">
         ${_incEditing
           ? `<input class="hero-income-edit" id="inc-hero" type="number" inputmode="decimal" value="${cp.income||''}" placeholder="0.00"
@@ -884,7 +924,7 @@ function renderHome() {
       <div class="bkd-row"><span class="bkd-op">−</span><span class="bkd-name" style="display:flex;align-items:center">Giving ${titheBtn}</span><span class="bkd-val">${fmt(tithe)}</span></div>
       <div class="bkd-row"><span class="bkd-op">−</span><span class="bkd-name">Variable spent</span><span class="bkd-val">${fmt(varSpent)}</span></div>
       ${catsLeftRows ? `<div class="bkd-cats">${catsLeftRows}</div>` : ''}
-      <div class="bkd-row bkd-total"><span class="bkd-op">=</span><span class="bkd-name">Investable</span><span class="bkd-val ${remaining < 0 ? 'r' : 'g'}">${remaining < 0 ? '−' : ''}${fmt(Math.abs(remaining))}</span></div>
+      <div class="bkd-row bkd-total"><span class="bkd-op">=</span><span class="bkd-name">To save</span><span class="bkd-val ${remaining < 0 ? 'r' : 'g'}">${remaining < 0 ? '−' : ''}${fmt(Math.abs(remaining))}</span></div>
     </div>
     <div class="card">
       <div class="card-label">Variable expenses</div>
@@ -902,13 +942,48 @@ function renderHome() {
       ${planned.length ? `<div style="font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);font-family:var(--font-mono);margin:${fixedRows?'10':'0'}px 0 6px">Planned</div>
       ${plannedRows}
       <div class="sum-row" style="margin-top:8px;border-top:1px solid var(--border);padding-top:10px">
-        <span class="sum-label">Projected investable</span>
+        <span class="sum-label">Projected savings</span>
         <span class="sum-val" style="color:${projInvest<0?'var(--red)':'var(--green)'}">${projInvest<0?'−':''}${fmt(projInvest)}</span>
       </div>` : ''}
       ${!fixedRows && !planned.length ? '<div class="empty" style="padding:8px 0">No upcoming items · add subscriptions in Settings</div>' : ''}
+    </div>
+    <div class="card">
+      <div class="card-label">Period notes</div>
+      <textarea id="period-note" rows="2" placeholder="Anything notable this period? e.g. car repair explains the gas overage…"
+        onchange="savePeriodNote(this.value)">${(cp.note||'').replace(/</g,'&lt;')}</textarea>
     </div>`;
 }
+function savePeriodNote(v) {
+  if (!S.currentPeriod) return;
+  S.currentPeriod.note = v.trim();
+  save(); toast('Note saved');
+}
 // ── CATEGORY BUDGETS ──────────────────────────────────────────────────────
+// Mini bar chart of a category's spend over the last 6 periods (incl. current)
+function buildCatHistoryHtml(k, color) {
+  const periods = [...(S.history||[]), S.currentPeriod].filter(Boolean).slice(-6);
+  if (periods.length < 2) return '';
+  const spend = periods.map(p =>
+    (p.expenses||[]).filter(e => e.cat === k).reduce((a,e) => a + parseFloat(e.amount), 0));
+  if (!spend.some(v => v > 0)) return '';
+  const max = Math.max(...spend);
+  const avg = spend.reduce((a,b) => a+b, 0) / spend.length;
+  const bars = periods.map((p, i) => {
+    const h = max > 0 ? Math.max(2, Math.round(spend[i] / max * 36)) : 2;
+    const isCur = i === periods.length - 1 && p === S.currentPeriod;
+    const lbl = p.startDateISO
+      ? new Date(p.startDateISO + 'T00:00:00').toLocaleDateString('en-US',{month:'numeric',day:'numeric'})
+      : '';
+    return `<div class="cat-hist-col">
+      <div class="cat-hist-amt">${spend[i] > 0 ? '$' + Math.round(spend[i]) : ''}</div>
+      <div class="cat-hist-bar" style="height:${h}px;background:${color};opacity:${isCur?'1':'.55'}"></div>
+      <div class="cat-hist-date">${lbl}</div>
+    </div>`;
+  }).join('');
+  return `
+    <div style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:14px 0 8px;font-family:var(--font-mono)">Last ${periods.length} periods · avg ${fmt(avg)}/pd</div>
+    <div class="cat-hist-bars">${bars}</div>`;
+}
 function renderCats() {
   const cats = S.settings.cats;
   const s    = S.settings;
@@ -1031,6 +1106,7 @@ function renderCats() {
       <div class="hist-exps-list" style="padding:14px 16px 16px;margin-top:0">
         <div style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:8px;font-family:var(--font-mono)">Transactions this period</div>
         ${expsHtml}
+        ${buildCatHistoryHtml(k, c.color)}
       </div>
     </details>`;
   }).join('');
@@ -1295,7 +1371,7 @@ function renderHistory() {
       ${cmpRow('Fixed',      pFixed(cur),   pFixed(prev),  fmt, true)}
       ${cmpRow('Giving',     pTithe(cur),   pTithe(prev))}
       ${cmpRow('Variable',   pVar(cur),     pVar(prev),    fmt, true)}
-      ${cmpRow('Investable', pInvest(cur),  pInvest(prev))}
+      ${cmpRow('To save',    pInvest(cur),  pInvest(prev))}
       ${cmpRow('Savings %',  pRate(cur),    pRate(prev),   n => n + '%')}`;
   }
 
@@ -1352,6 +1428,7 @@ function renderHistory() {
                 <span class="summary-chevron">▾</span>
               </div>
             </summary>
+            ${p.note ? `<div style="margin-top:12px;padding:9px 12px;background:var(--surface);border:1px solid var(--border);border-radius:8px;font-size:12px;color:var(--muted);font-style:italic">📝 ${p.note.replace(/</g,'&lt;')}</div>` : ''}
             <div class="hist-exps-list">
               <div class="hist-section-hdr">
                 <span class="hist-section-label">Transactions</span>
