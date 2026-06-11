@@ -6,7 +6,8 @@
   "scripts": {
     "copy-www": "node scripts/copy-www.js",
     "sync": "npm run copy-www && npx cap sync",
-    "open:android": "npx cap open android"
+    "open:android": "npx cap open android",
+    "release": "node scripts/release.js"
   },
   "repository": {
     "type": "git",
