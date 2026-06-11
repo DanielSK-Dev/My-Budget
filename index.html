@@ -22,7 +22,7 @@
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--font);overflow:hidden;overscroll-behavior-y:none;position:fixed;width:100%;top:0;left:0}
 #app{display:flex;flex-direction:column;height:100vh;height:100dvh;width:100%}
-#screen{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;padding:20px 16px calc(110px + var(--safe-bottom));overscroll-behavior-y:contain}
+#screen{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;padding:20px 16px calc(96px + var(--safe-bottom));overscroll-behavior-y:contain}
 #screen::-webkit-scrollbar{display:none}
 #nav{position:fixed;left:0;right:0;bottom:0;display:flex;background:var(--surface);border-top:1px solid var(--border);padding-bottom:var(--safe-bottom);z-index:50}
 .nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 2px 8px;border:none;background:none;color:var(--muted);cursor:pointer;font-size:9px;font-family:var(--font);letter-spacing:.04em;transition:color .15s}
@@ -368,7 +368,7 @@ details[open] > summary .summary-chevron {
 <div id="toast"></div>
 <script>
 // ── VERSION ───────────────────────────────────────────────────────────────
-const APP_VERSION = '1.13.2';
+const APP_VERSION = '1.13.3';
 // Tip-jar link (Ko-fi / Buy Me a Coffee / GitHub Sponsors). Shown in Settings
 // on the web/PWA only — never in the native Play Store build, where external
 // payment links violate Google Play's payments policy. Leave '' to hide.
@@ -2382,7 +2382,7 @@ function animateDetails(details, shouldOpen) {
       details.open = false;
     } else if (details.classList.contains('cat-card')) {
       // Scroll expanded card into view so the user doesn't have to chase it
-      details.scrollIntoView({behavior: 'smooth', block: 'nearest'});
+      details.scrollIntoView({behavior: 'smooth', block: 'end'});
     }
   };
   details.addEventListener('transitionend', finish);
