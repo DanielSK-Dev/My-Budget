@@ -368,7 +368,7 @@ details[open] > summary .summary-chevron {
 <div id="toast"></div>
 <script>
 // ── VERSION ───────────────────────────────────────────────────────────────
-const APP_VERSION = '1.13.0';
+const APP_VERSION = '1.13.1';
 // Tip-jar link (Ko-fi / Buy Me a Coffee / GitHub Sponsors). Shown in Settings
 // on the web/PWA only — never in the native Play Store build, where external
 // payment links violate Google Play's payments policy. Leave '' to hide.
@@ -994,9 +994,12 @@ function buildCatHistoryHtml(k, color) {
   const bars = periods.map((p, i) => {
     const h = max > 0 ? Math.max(2, Math.round(spend[i] / max * 36)) : 2;
     const isCur = i === periods.length - 1 && p === S.currentPeriod;
-    const lbl = p.startDateISO
-      ? new Date(p.startDateISO + 'T00:00:00').toLocaleDateString('en-US',{month:'numeric',day:'numeric'})
-      : (p.startDate || '').replace(/,\s*\d{4}$/, '');
+    const _lblDate = p.startDateISO
+      ? new Date(p.startDateISO + 'T00:00:00')
+      : (p.startDate ? new Date(p.startDate) : null);
+    const lbl = _lblDate && !isNaN(_lblDate)
+      ? _lblDate.toLocaleDateString('en-US', {month:'numeric', day:'numeric'})
+      : '';
     return `<div class="cat-hist-col">
       <div class="cat-hist-amt">${spend[i] > 0 ? '$' + Math.round(spend[i]) : ''}</div>
       <div class="cat-hist-bar" style="height:${h}px;background:${color};opacity:${isCur?'1':'.55'}"></div>
