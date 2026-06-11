@@ -368,7 +368,7 @@ details[open] > summary .summary-chevron {
 <div id="toast"></div>
 <script>
 // ── VERSION ───────────────────────────────────────────────────────────────
-const APP_VERSION = '1.13.5';
+const APP_VERSION = '1.13.6';
 // Tip-jar link (Ko-fi / Buy Me a Coffee / GitHub Sponsors). Shown in Settings
 // on the web/PWA only — never in the native Play Store build, where external
 // payment links violate Google Play's payments policy. Leave '' to hide.
@@ -2381,15 +2381,17 @@ function animateDetails(details, shouldOpen) {
     if (!shouldOpen) {
       details.open = false;
     } else if (details.classList.contains('cat-card')) {
-      // Use getBoundingClientRect so the calculation is relative to the
-      // visible #screen area (accounts for current scroll + fixed nav bar).
-      const screen = document.getElementById('screen');
+      // #screen.clientHeight = full viewport height, but the fixed nav bar
+      // overlaps the bottom of #screen, so subtract its height to get the
+      // actual visible area. Then scroll so the card bottom is 20px above
+      // the top of the nav bar.
+      const screen  = document.getElementById('screen');
+      const nav     = document.getElementById('nav');
       const screenRect = screen.getBoundingClientRect();
       const cardRect   = details.getBoundingClientRect();
-      // Position of card bottom within the scrollable content
       const cardBottomInContent = screen.scrollTop + (cardRect.bottom - screenRect.top);
-      // Scroll so card bottom lands 20px above the inner bottom of #screen
-      screen.scrollTo({top: cardBottomInContent - screen.clientHeight + 20, behavior: 'smooth'});
+      const visibleH = screen.clientHeight - (nav ? nav.offsetHeight : 0);
+      screen.scrollTo({top: cardBottomInContent - visibleH + 20, behavior: 'smooth'});
     }
   };
   details.addEventListener('transitionend', finish);
