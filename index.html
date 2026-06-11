@@ -368,7 +368,7 @@ details[open] > summary .summary-chevron {
 <div id="toast"></div>
 <script>
 // ── VERSION ───────────────────────────────────────────────────────────────
-const APP_VERSION = '1.13.3';
+const APP_VERSION = '1.13.4';
 // Tip-jar link (Ko-fi / Buy Me a Coffee / GitHub Sponsors). Shown in Settings
 // on the web/PWA only — never in the native Play Store build, where external
 // payment links violate Google Play's payments policy. Leave '' to hide.
@@ -2381,8 +2381,12 @@ function animateDetails(details, shouldOpen) {
     if (!shouldOpen) {
       details.open = false;
     } else if (details.classList.contains('cat-card')) {
-      // Scroll expanded card into view so the user doesn't have to chase it
-      details.scrollIntoView({behavior: 'smooth', block: 'end'});
+      // scrollIntoView ignores the fixed nav bar, so scroll #screen manually.
+      // Target: bottom of the card sits 16px above the nav bar.
+      const screen = document.getElementById('screen');
+      const cardBottom = details.offsetTop + details.offsetHeight;
+      const target = cardBottom - screen.clientHeight + 16;
+      screen.scrollTo({top: target, behavior: 'smooth'});
     }
   };
   details.addEventListener('transitionend', finish);
