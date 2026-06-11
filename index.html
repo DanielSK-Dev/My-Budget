@@ -1752,6 +1752,32 @@ function renderSettings() {
       <button class="btn-sm danger" onclick="resetAll()">Reset all data</button>
     </div>`;
 }
+// ── TIP JAR (Google Play Billing) — staged, not yet surfaced in the UI ───
+// To launch: create three consumable in-app products in the Play Console
+// with the IDs below, then set TIPS_ENABLED = true and add the buttons to
+// the Settings "Support" card (native branch). See ANDROID.md.
+const TIPS_ENABLED = false;
+const TIP_PRODUCT_IDS = ['tip_small', 'tip_medium', 'tip_large'];
+let _tipProducts = []; // populated from Play with localized titles/prices
+function initTipJar() {
+  if (!TIPS_ENABLED || !window.CdvPurchase) return;
+  const { store, ProductType, Platform } = CdvPurchase;
+  store.register(TIP_PRODUCT_IDS.map(id =>
+    ({ id, type: ProductType.CONSUMABLE, platform: Platform.GOOGLE_PLAY })));
+  store.when()
+    .approved(tx => tx.finish())
+    .finished(() => toast('Thank you so much! ☕'));
+  store.when().productUpdated(() => {
+    _tipProducts = TIP_PRODUCT_IDS.map(id => store.get(id)).filter(p => p && p.canPurchase);
+    if (TAB === 'settings') render();
+  });
+  store.initialize([Platform.GOOGLE_PLAY]);
+}
+document.addEventListener('deviceready', initTipJar);
+function buyTip(id) {
+  const offer = CdvPurchase.store.get(id, CdvPurchase.Platform.GOOGLE_PLAY)?.getOffer();
+  if (offer) offer.order();
+}
 // ── SETTINGS ACTIONS ──────────────────────────────────────────────────────
 function updateSetting(key, val) {
   if (key === 'tithe') {
