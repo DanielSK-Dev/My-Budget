@@ -83,6 +83,30 @@ keytool -genkey -v -keystore my-budget-upload.keystore \
   remain usable on GitHub Pages exactly as before. `www/` is just a synced
   copy for the native build.
 
+## Tip jar via Play Billing (staged — not live yet)
+
+The `cordova-plugin-purchase` plugin is installed and inert plumbing exists in
+`index.html` behind `TIPS_ENABLED = false`. Donations inside the Play build
+must go through Google Play Billing (external links like Ko-fi violate Play's
+payments policy in-app; the web/PWA keeps the `DONATE_URL` link instead).
+
+To launch tips later:
+
+1. Upload a build containing the billing plugin to Play (any testing track) —
+   Play won't let you create in-app products until it has seen the
+   `com.android.vending.BILLING` permission in an uploaded artifact.
+2. In Play Console → **Monetize → Products → In-app products**, create three
+   **consumable** products with exactly these IDs:
+   `tip_small`, `tip_medium`, `tip_large` (e.g. $2.99 / $4.99 / $9.99).
+3. Set `TIPS_ENABLED = true` in `index.html`.
+4. Add tip buttons to the Settings "Support" card for the native branch —
+   `_tipProducts` carries the localized titles/prices from Play, and
+   `buyTip(id)` launches the purchase flow.
+5. Test with a **license tester** account (Play Console → Settings → License
+   testing) so test purchases aren't charged.
+
+Note: Google keeps 15% of each tip (the reduced service fee tier).
+
 ## iOS later
 
 The same project supports iOS, but Apple builds require a Mac with Xcode:
