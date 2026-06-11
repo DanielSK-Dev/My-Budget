@@ -12,51 +12,53 @@ App ID: `com.danielsk.mybudget` · App name: **My Budget**
 2. Install [Node.js](https://nodejs.org) (v18+).
 3. Clone this repo and run `npm install`.
 
-## Day-to-day workflow
+## Two-track workflow
 
-All app development still happens in the root `index.html` — nothing about
-that workflow changes. When you want to update the Android app:
+**Track 1 — daily development (instant updates, no builds).** Keep using the
+PWA from GitHub Pages on your phone. The service worker is network-first, so
+every push to `main` shows up the next time you open/reload the app. Nothing
+to build, nothing to install.
+
+**Track 2 — Play Store releases (semi-frequent, one command).** When you want
+the Play version to catch up:
 
 ```bash
-npm run sync          # copies index.html etc. into www/ and into the android project
-npm run open:android  # opens the project in Android Studio
+npm run release
 ```
 
-Then run on a device/emulator with the ▶ button, or build a release (below).
+That script automatically:
+1. reads `APP_VERSION` from `index.html` → android `versionName`
+2. bumps the android `versionCode` (Play requires +1 every upload)
+3. syncs the web app into the native project
+4. builds the signed `.aab` with gradle
 
-## Building the release bundle (.aab) for Play
+Then drag `android/app/build/outputs/bundle/release/app-release.aab` into the
+Play Console (Production → Create new release) and commit the version bump it
+made to `android/app/version.properties`.
 
-Google Play requires an **Android App Bundle (.aab)** signed with your upload key.
+To test the *native* app on a device/emulator during development:
 
-### 1. Create your upload keystore (once — keep it safe!)
+```bash
+npm run sync && npm run open:android   # then ▶ in Android Studio
+```
+
+## One-time signing setup
+
+Google Play requires the bundle to be signed with your upload key.
+
+1. Create the keystore (once — keep it safe, e.g. in a password manager):
 
 ```bash
 keytool -genkey -v -keystore my-budget-upload.keystore \
   -alias upload -keyalg RSA -keysize 2048 -validity 10000
 ```
 
-Store the keystore file and its passwords somewhere safe (password manager).
-**Do not commit it** — `.gitignore` already excludes `*.keystore`.
+2. Copy `keystore.properties.example` to `keystore.properties` and fill in
+   the passwords. Both the keystore and `keystore.properties` are gitignored —
+   **never commit them**. The gradle build picks them up automatically, so
+   `npm run release` produces an upload-ready signed bundle.
 
-### 2. Bump the version
-
-In `android/app/build.gradle` increase both values for every Play upload:
-
-```gradle
-versionCode 2          // integer, must increase every upload
-versionName "1.13.0"   // human-readable, match APP_VERSION in index.html
-```
-
-### 3. Build
-
-In Android Studio: **Build → Generate Signed App Bundle / APK → Android App Bundle**,
-pick your keystore, choose *release*. The bundle lands in
-`android/app/release/app-release.aab`.
-
-(Command line alternative: `cd android && ./gradlew bundleRelease`, then sign
-with the keystore via the signing config or `jarsigner`.)
-
-### 4. Play Console
+## Play Console (first release only)
 
 1. Create a developer account at https://play.google.com/console ($25 one-time).
 2. **Create app** → fill in name, free/paid, declarations.
