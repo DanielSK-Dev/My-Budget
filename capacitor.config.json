@@ -1,0 +1,9 @@
+{
+  "appId": "com.danielsk.mybudget",
+  "appName": "My Budget",
+  "webDir": "www",
+  "backgroundColor": "#0a0a0a",
+  "android": {
+    "allowMixedContent": false
+  }
+}
