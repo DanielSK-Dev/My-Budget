@@ -368,7 +368,11 @@ details[open] > summary .summary-chevron {
 <div id="toast"></div>
 <script>
 // ── VERSION ───────────────────────────────────────────────────────────────
-const APP_VERSION = '1.12.0';
+const APP_VERSION = '1.13.0';
+// Tip-jar link (Ko-fi / Buy Me a Coffee / GitHub Sponsors). Shown in Settings
+// on the web/PWA only — never in the native Play Store build, where external
+// payment links violate Google Play's payments policy. Leave '' to hide.
+const DONATE_URL = '';
 // ── DEFAULTS ──────────────────────────────────────────────────────────────
 const DEFAULT_CATS = {
   groceries: {label:'Groceries',     color:'#00c97a', monthly:200},
@@ -1733,6 +1737,13 @@ function renderSettings() {
       <button class="btn-sm" onclick="checkForUpdates()">↻ Clear cache &amp; reload</button>
       <div style="font-size:11px;color:var(--muted);margin-top:10px;line-height:1.5">Clears cached files so the newest index.html is loaded. Your budget data is stored separately and will not be affected.</div>
     </div>
+
+    ${DONATE_URL && !window.Capacitor?.isNativePlatform?.() ? `
+    <div class="card">
+      <div class="card-label">Support</div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.5">Enjoying the app? It's free and always will be — but if it's saved you some money, you can buy the developer a coffee.</div>
+      <a href="${DONATE_URL}" target="_blank" rel="noopener" class="btn btn-ghost" style="display:block;text-align:center;text-decoration:none">☕ Buy me a coffee</a>
+    </div>` : ''}
 
     <!-- Danger zone — very bottom, below Clear Cache & Reload -->
     <div class="card" style="margin-bottom:0">
