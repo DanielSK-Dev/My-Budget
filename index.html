@@ -368,7 +368,7 @@ details[open] > summary .summary-chevron {
 <div id="toast"></div>
 <script>
 // ── VERSION ───────────────────────────────────────────────────────────────
-const APP_VERSION = '1.13.6';
+const APP_VERSION = '1.13.7';
 // Tip-jar link (Ko-fi / Buy Me a Coffee / GitHub Sponsors). Shown in Settings
 // on the web/PWA only — never in the native Play Store build, where external
 // payment links violate Google Play's payments policy. Leave '' to hide.
@@ -548,9 +548,6 @@ function getNextPaydayAfter(fromDate) {
 function getPaydayInfo() {
   if (!S.settings.lastPayday) return {date:'Not set', days:'?'};
   const now  = new Date(); now.setHours(0,0,0,0);
-  const most = getMostRecentPayday();
-  if (most && most.getTime() === now.getTime())
-    return {date: now.toLocaleDateString('en-US', {month:'short', day:'numeric'}), days: 0};
   const next = getNextPaydayAfter(now);
   if (!next) return {date:'Not set', days:'?'};
   return {date: next.toLocaleDateString('en-US', {month:'short', day:'numeric'}), days: Math.round((next - now) / MS_DAY)};
