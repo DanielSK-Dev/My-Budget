@@ -368,7 +368,7 @@ details[open] > summary .summary-chevron {
 <div id="toast"></div>
 <script>
 // ── VERSION ───────────────────────────────────────────────────────────────
-const APP_VERSION = '1.13.7';
+const APP_VERSION = '1.14.0';
 // Tip-jar link (Ko-fi / Buy Me a Coffee / GitHub Sponsors). Shown in Settings
 // on the web/PWA only — never in the native Play Store build, where external
 // payment links violate Google Play's payments policy. Leave '' to hide.
@@ -707,6 +707,19 @@ function catDebt(k) {
 function catSpent(k) {
   return (S.currentPeriod?.expenses || []).filter(e => e.cat === k).reduce((a,e) => a + parseFloat(e.amount), 0);
 }
+// Resolve a category key to display meta. Empty/missing key = Uncategorized,
+// a one-off expense tracked as real spending but not tied to any budget.
+function catMeta(k) {
+  if (!k) return {label: 'Uncategorized', color: '#6b7280'};
+  return S.settings.cats[k] || {label: k, color: '#555'};
+}
+// Build <option> tags for a category <select>, with an Uncategorized choice
+// (value="") appended. Pass the currently-selected key to mark it selected.
+function catOptionsHtml(sel) {
+  const real = Object.entries(S.settings.cats)
+    .map(([k,c]) => `<option value="${k}" ${sel===k?'selected':''}>${c.label}</option>`).join('');
+  return real + `<option value="" ${sel===''?'selected':''}>Uncategorized</option>`;
+}
 function computeCarryover(period) {
   const out = {};
   const ppm = S.settings.payFreq === 'weekly' ? 4 : S.settings.payFreq === 'monthly' ? 1 : 2;
@@ -844,7 +857,7 @@ function renderHome() {
     : exps.map((e, i) => ({e, i}))
           .sort((a, b) => (b.e.dateISO || b.e.date || '') > (a.e.dateISO || a.e.date || '') ? 1 : -1)
           .map(({e, i}) => {
-            const c = S.settings.cats[e.cat] || {label: e.cat, color: '#555'};
+            const c = catMeta(e.cat);
             return `<div class="exp-item">
               <div class="pip" style="background:${c.color};height:32px"></div>
               <div class="exp-info">
@@ -1176,7 +1189,7 @@ function renderCats() {
 }
 // ── ADD EXPENSE ───────────────────────────────────────────────────────────
 function renderLog() {
-  const catOpts  = Object.entries(S.settings.cats).map(([k,c]) => `<option value="${k}">${c.label}</option>`).join('');
+  const catOpts  = catOptionsHtml();
   const quickRows = (S.settings.quickAdds || []).map((q,i) => {
     const c   = S.settings.cats[q.cat] || {};
     const amt = calcQuickAmt(q);
@@ -1189,7 +1202,6 @@ function renderLog() {
       <button class="quick-btn" onclick="quickAdd(${i})">+ Add</button>
     </div>`;
   }).join('');
-  const planCatOpts = Object.entries(S.settings.cats).map(([k,c]) => `<option value="${k}">${c.label}</option>`).join('');
   const s = S.settings;
   const quickEditCards = (s.quickAdds || []).map((q, i) => {
     const c   = s.cats[q.cat] || {};
@@ -1296,7 +1308,7 @@ function buildCatSummaryHtml(period) {
   if (!entries.length) return '';
   const max = entries[0][1];
   const rows = entries.map(([k, total]) => {
-    const c    = S.settings.cats[k] || {label: k, color: '#555'};
+    const c    = catMeta(k);
     const barW = max > 0 ? Math.round(total / max * 100) : 0;
     return `<div class="cat-sum-row">
       <div class="pip" style="background:${c.color};height:16px"></div>
@@ -1311,7 +1323,7 @@ function buildCatSummaryHtml(period) {
   </div>`;
 }
 function renderHistExpRow(pid, ei, e) {
-  const c = S.settings.cats[e.cat] || {label: e.cat, color: '#555'};
+  const c = catMeta(e.cat);
   return `<div class="hist-exp-row"
     onpointerdown="gestStart(event,'.hist-exp-row',()=>startHistEdit('${pid}',${ei}),()=>openHistSheet('${pid}',${ei}))"
     onpointermove="gestMove(event)"
@@ -1329,8 +1341,7 @@ function renderHistExpRow(pid, ei, e) {
   </div>${e.note ? `<div style="padding:0 0 4px 52px;font-size:11px;color:var(--muted);font-style:italic">${e.note}</div>` : ''}`;
 }
 function renderHistEditRow(pid, ei, e) {
-  const catOpts = Object.entries(S.settings.cats).map(([k,c]) =>
-    `<option value="${k}" ${e.cat===k?'selected':''}>${c.label}</option>`).join('');
+  const catOpts = catOptionsHtml(e.cat);
   const dateVal = e.dateISO || parseDisplayToISO(e.date);
   return `<div class="hist-edit-wrap">
     <div class="hist-edit-r1">
@@ -1349,8 +1360,7 @@ function renderHistEditRow(pid, ei, e) {
   </div>`;
 }
 function renderHistAddForm(pid) {
-  const catOpts = Object.entries(S.settings.cats).map(([k,c]) =>
-    `<option value="${k}">${c.label}</option>`).join('');
+  const catOpts = catOptionsHtml();
   return `<div class="hist-add-wrap">
     <div class="ha-row">
       <input type="text" id="ha-n-${pid}" placeholder="Description" style="flex:1"/>
@@ -2090,7 +2100,7 @@ function exportCSV() {
   const periods = [...(S.history||[]), S.currentPeriod].filter(Boolean);
   periods.forEach(p => {
     (p.expenses||[]).forEach(e => {
-      const cat = S.settings.cats[e.cat]?.label || e.cat;
+      const cat = catMeta(e.cat).label;
       rows.push([p.startDate, e.date||'', e.name, cat, (parseFloat(e.amount)||0).toFixed(2), e.note||'']);
     });
   });
