@@ -368,7 +368,7 @@ details[open] > summary .summary-chevron {
 <div id="toast"></div>
 <script>
 // ── VERSION ───────────────────────────────────────────────────────────────
-const APP_VERSION = '1.14.0';
+const APP_VERSION = '1.15.0';
 // Tip-jar link (Ko-fi / Buy Me a Coffee / GitHub Sponsors). Shown in Settings
 // on the web/PWA only — never in the native Play Store build, where external
 // payment links violate Google Play's payments policy. Leave '' to hide.
@@ -692,16 +692,22 @@ function toast(msg) {
   setTimeout(() => el.classList.remove('show'), 2500);
 }
 // ── CATEGORY MATH ─────────────────────────────────────────────────────────
+// Cash added mid-period (tips, gifts, side cash) targeted at a category.
+// A boost raises the category's effective carryover: it pays off debt first,
+// and whatever remains becomes extra spendable this period.
+function boostsFor(period, k) {
+  return (period?.boosts || []).filter(b => b.cat === k).reduce((a,b) => a + parseFloat(b.amount), 0);
+}
 function catBudget(k) {
   const ppm = S.settings.payFreq === 'weekly' ? 4 : S.settings.payFreq === 'monthly' ? 1 : 2;
   const base  = (S.settings.cats[k]?.monthly || 0) / ppm;
-  const carry = S.currentPeriod?.carryover?.[k] || 0;
+  const carry = (S.currentPeriod?.carryover?.[k] || 0) + boostsFor(S.currentPeriod, k);
   // Negative carryover is a debt shown as pre-spent, NOT a budget reduction
   return base + Math.max(0, carry);
 }
 function catDebt(k) {
   // Returns the absolute-value debt from last period (negative carryover only)
-  const carry = S.currentPeriod?.carryover?.[k] || 0;
+  const carry = (S.currentPeriod?.carryover?.[k] || 0) + boostsFor(S.currentPeriod, k);
   return carry < 0 ? Math.abs(carry) : 0;
 }
 function catSpent(k) {
@@ -726,7 +732,7 @@ function computeCarryover(period) {
   Object.keys(S.settings.cats).forEach(k => {
     const cat   = S.settings.cats[k];
     const base  = (cat?.monthly || 0) / ppm;
-    const carry = period.carryover?.[k] || 0;
+    const carry = (period.carryover?.[k] || 0) + boostsFor(period, k);
     const spent = (period.expenses || []).filter(e => e.cat === k).reduce((a,e) => a + parseFloat(e.amount), 0);
     let raw = parseFloat((base + carry - spent).toFixed(2));
     const mode = cat?.carryMode || 'both';
@@ -770,7 +776,7 @@ function newPeriodObj(isoDate, carry) {
   return {
     startDate:    new Date(isoDate + 'T00:00:00').toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'}),
     startDateISO: isoDate,
-    income: 0, expenses: [], carryover: carry || {},
+    income: 0, expenses: [], boosts: [], carryover: carry || {},
     // Auto setting decides whether the new period starts with giving already paid
     tithePaid: !!S.settings.titheAutoPaid,
     fixedPaid: {},  // per-fixed-cost paid override map (id → true|false)
@@ -1025,7 +1031,8 @@ function renderCats() {
   const s    = S.settings;
   const ppm  = s.payFreq === 'weekly' ? 4 : s.payFreq === 'monthly' ? 1 : 2;
   const visibleCats = Object.entries(cats).filter(([k,c]) =>
-    (c.monthly||0) > 0 || catSpent(k) > 0 || (S.currentPeriod?.carryover?.[k]||0) !== 0
+    (c.monthly||0) > 0 || catSpent(k) > 0 ||
+    ((S.currentPeriod?.carryover?.[k]||0) + boostsFor(S.currentPeriod, k)) !== 0
   );
   // In edit mode show every category (so all can be edited and reordered)
   const list = _catsEditing ? Object.entries(cats) : visibleCats;
@@ -1039,7 +1046,8 @@ function renderCats() {
     const pct         = budget > 0 ? Math.min(100, Math.round(spent/budget*100)) : 0;
     const barCol      = pct>90 ? 'var(--red)' : pct>70 ? 'var(--amber)' : c.color;
     const remClass    = rem<0 ? 'r' : rem < budget*0.25 ? 'a' : 'g';
-    const carry       = S.currentPeriod?.carryover?.[k] || 0;
+    // Rollover stat shows effective carry: last period's leftover + cash tips
+    const carry       = (S.currentPeriod?.carryover?.[k] || 0) + boostsFor(S.currentPeriod, k);
     const base        = (c.monthly || 0) / ppm; // per-period allocation before rollover
 
     const headerHtml = `
@@ -1126,14 +1134,21 @@ function renderCats() {
            <span class="hist-exp-amt" style="color:var(--red)">−${fmt(debt)}</span>
          </div>`
       : '';
+    const boostRows = (S.currentPeriod?.boosts||[]).filter(b => b.cat===k).map(b => `
+      <div class="hist-exp-row">
+        <span class="hist-exp-date">${b.date||''}</span>
+        <span class="hist-exp-name" style="color:var(--green)">💵 ${b.note || 'Cash added'}</span>
+        <span class="hist-exp-amt" style="color:var(--green)">+${fmt(b.amount)}</span>
+        <button class="hist-icon-btn del-icon" onclick="delBoost('${b.id}')" title="Remove">×</button>
+      </div>`).join('');
     const expRows = catExps.slice().reverse().map(e => `
       <div class="hist-exp-row">
         <span class="hist-exp-date">${e.date||''}</span>
         <span class="hist-exp-name">${e.name}</span>
         <span class="hist-exp-amt">${fmt(e.amount)}</span>
       </div>${e.note ? `<div style="padding:0 0 4px 52px;font-size:11px;color:var(--muted);font-style:italic">${e.note}</div>` : ''}`).join('');
-    const expsHtml = (debtRow || expRows)
-      ? debtRow + expRows
+    const expsHtml = (debtRow || boostRows || expRows)
+      ? debtRow + boostRows + expRows
       : '<div style="padding:8px 0;color:var(--muted);font-size:12px">No transactions yet.</div>';
     return `<details class="cat-card" style="padding:0">
       <summary style="padding:16px;outline:none;cursor:pointer;display:block"
@@ -1190,6 +1205,11 @@ function renderCats() {
 // ── ADD EXPENSE ───────────────────────────────────────────────────────────
 function renderLog() {
   const catOpts  = catOptionsHtml();
+  // Tip-jar target options — flag categories carrying debt so paying it off is easy
+  const tipCatOpts = Object.entries(S.settings.cats).map(([k,c]) => {
+    const debt = catDebt(k);
+    return `<option value="${k}">${c.label}${debt > 0 ? ` — ${fmt(debt)} debt` : ''}</option>`;
+  }).join('');
   const quickRows = (S.settings.quickAdds || []).map((q,i) => {
     const c   = S.settings.cats[q.cat] || {};
     const amt = calcQuickAmt(q);
@@ -1277,6 +1297,16 @@ function renderLog() {
         </select>
       </div>
       <button class="btn btn-primary" onclick="addExpense()">Add to this period</button>
+    </div>
+
+    <div class="card" style="margin-top:12px">
+      <div class="card-label">💵 Cash tip / extra money</div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.5">Add extra cash to a budget — it pays off any debt first, and the rest becomes spendable this period.</div>
+      <div class="row-fields">
+        <div class="field"><label>Amount ($)</label><input type="number" id="tip-amt" placeholder="0.00" inputmode="decimal" min="0" step="0.01"/></div>
+        <div class="field"><label>Add to</label><select id="tip-cat">${tipCatOpts}</select></div>
+      </div>
+      <button class="btn btn-primary" onclick="addBoost()">Add to budget</button>
     </div>
 
     <div style="display:flex;align-items:center;justify-content:space-between;margin:20px 0 8px">
@@ -1478,8 +1508,17 @@ function renderHistory() {
               return renderHistEditRow(pid, ei, e);
             return renderHistExpRow(pid, ei, e);
           }).join('');
+        const boostItems = (p.boosts||[]).map(b => {
+          const c = catMeta(b.cat);
+          return `<div class="hist-exp-row">
+            <span class="hist-exp-date">${b.date||''}</span>
+            <div class="pip" style="background:${c.color};height:14px;margin:0 2px"></div>
+            <span class="hist-exp-name" style="color:var(--green)">💵 Cash added → ${c.label}</span>
+            <span class="hist-exp-amt" style="color:var(--green)">+${fmt(b.amount)}</span>
+          </div>`;
+        }).join('');
         const addForm = _histAdd === pid ? renderHistAddForm(pid) : '';
-        const isEmpty = (p.expenses||[]).length === 0 && _histAdd !== pid;
+        const isEmpty = (p.expenses||[]).length === 0 && (p.boosts||[]).length === 0 && _histAdd !== pid;
         const isOpen  = isCurrent || (_histEdit && _histEdit.pid === pid) || _histAdd === pid;
         return `
           <details style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:16px;margin-bottom:10px;" ${isOpen?'open':''}>
@@ -1502,7 +1541,7 @@ function renderHistory() {
                 <span class="hist-section-label">Transactions</span>
                 <button class="hist-add-btn" onclick="startHistAdd('${pid}')">＋ Add</button>
               </div>
-              ${isEmpty ? '<div style="padding:8px 0;color:var(--muted);font-size:12px">No transactions logged.</div>' : expItems}
+              ${isEmpty ? '<div style="padding:8px 0;color:var(--muted);font-size:12px">No transactions logged.</div>' : boostItems + expItems}
               ${addForm}
             </div>
             ${buildCatSummaryHtml(p)}
@@ -2242,6 +2281,36 @@ function addExpense() {
   save(); toast(recur ? `Added & set to repeat ${RECUR_LABELS[freq]||freq}` : `Added: ${name}`);
   checkBudgetAlert(cat);
   switchTab('home');
+}
+function addBoost() {
+  const amt = parseFloat(document.getElementById('tip-amt')?.value);
+  const cat = document.getElementById('tip-cat')?.value;
+  if (isNaN(amt) || amt <= 0)        { toast('Enter a valid amount'); return; }
+  if (!cat || !S.settings.cats[cat]) { toast('Pick a category'); return; }
+  if (!S.currentPeriod) {
+    if (!confirm('No active period. Start one now?')) return;
+    const most = getMostRecentPayday();
+    S.currentPeriod = newPeriodObj(most ? most.toISOString().slice(0,10) : todayISO(), {});
+  }
+  if (!Array.isArray(S.currentPeriod.boosts)) S.currentPeriod.boosts = [];
+  const debtBefore = catDebt(cat);
+  S.currentPeriod.boosts.push({id: genId('tip'), cat, amount: amt, date: todayStr(), dateISO: todayISO()});
+  const label = S.settings.cats[cat].label;
+  const paid  = Math.min(debtBefore, amt);
+  save();
+  toast(paid > 0
+    ? (amt > paid ? `Paid off ${fmt(paid)} ${label} debt · +${fmt(amt - paid)} spendable`
+                  : `Paid ${fmt(paid)} toward ${label} debt`)
+    : `+${fmt(amt)} to ${label}`);
+  switchTab('cats');
+}
+function delBoost(id) {
+  const b = (S.currentPeriod?.boosts || []).find(x => x.id === id);
+  if (!b) return;
+  const label = S.settings.cats[b.cat]?.label || b.cat;
+  if (!confirm(`Remove the ${fmt(b.amount)} added to ${label}?`)) return;
+  S.currentPeriod.boosts = S.currentPeriod.boosts.filter(x => x.id !== id);
+  save(); render(); toast('Removed');
 }
 function delRecurring(id) {
   S.settings.recurring = (S.settings.recurring || []).filter(r => r.id !== id);
