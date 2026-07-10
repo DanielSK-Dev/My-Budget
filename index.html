@@ -384,7 +384,7 @@ details[open] > summary .summary-chevron {
 <div id="toast"></div>
 <script>
 // ── VERSION ───────────────────────────────────────────────────────────────
-const APP_VERSION = '1.18.1';
+const APP_VERSION = '1.19.0';
 // Tip-jar link (Ko-fi / Buy Me a Coffee / GitHub Sponsors). Shown in Settings
 // on the web/PWA only — never in the native Play Store build, where external
 // payment links violate Google Play's payments policy. Leave '' to hide.
@@ -1263,7 +1263,7 @@ function renderCats() {
       : '<div style="padding:8px 0;color:var(--muted);font-size:12px">No transactions yet.</div>';
     return `<details class="cat-card" style="padding:0">
       <summary style="padding:16px;outline:none;cursor:pointer;display:block"
-        onpointerdown="gestStart(event,'.cat-card',()=>{_catsEditing=true;_catEditKey='${k}';render()},()=>{_catSheet='${k}';render()})"
+        onpointerdown="gestStart(event,'.cat-card',()=>{_catSheet='${k}';render()})"
         onpointermove="gestMove(event)"
         onpointerup="gestEnd()"
         onpointercancel="gestCancel()"
@@ -1296,7 +1296,7 @@ function renderCats() {
 
   return `
     <div class="page-header" style="display:flex;align-items:flex-start;justify-content:space-between">
-      <div><h1>Budgets</h1><p>${_catsEditing ? 'Tap to edit · long-press &amp; drag to reorder' : 'Swipe to edit · hold for options'}</p></div>
+      <div><h1>Budgets</h1><p>${_catsEditing ? 'Tap to edit · long-press &amp; drag to reorder' : 'Hold a card to edit or delete'}</p></div>
       <button onclick="toggleCatsEdit()" style="background:none;border:1px solid var(--border);color:${_catsEditing?'var(--green)':'var(--muted)'};border-radius:8px;padding:6px 14px;font-size:13px;cursor:pointer;margin-top:4px;flex-shrink:0">${_catsEditing?'Done':'Edit'}</button>
     </div>
     ${cards || '<div class="card"><div class="empty">No spending tracked yet this period</div></div>'}
@@ -1467,7 +1467,7 @@ function buildCatSummaryHtml(period) {
 function renderHistExpRow(pid, ei, e) {
   const c = catMeta(e.cat);
   return `<div class="hist-exp-row"
-    onpointerdown="gestStart(event,'.hist-exp-row',()=>startHistEdit('${pid}',${ei}),()=>openHistSheet('${pid}',${ei}))"
+    onpointerdown="gestStart(event,'.hist-exp-row',()=>openHistSheet('${pid}',${ei}))"
     onpointermove="gestMove(event)"
     onpointerup="gestEnd()"
     onpointercancel="gestCancel()"
@@ -1955,21 +1955,20 @@ function toggleQuickEdit() { _quickEditing = !_quickEditing; _quickEditKey = nul
 function openQuickEdit(i) { _quickEditKey = _quickEditKey === i ? null : i; render(); }
 function openCatEdit(k) { _catEditKey = _catEditKey === k ? null : k; render(); }
 
-// ── Swipe / long-press gestures (category cards & history rows) ──────────
+// ── Long-press gestures (category cards & history rows) ──────────────────
+// Horizontal swipes belong to tab navigation, so cards only own the
+// long-press (hold → Edit/Delete sheet). Any real movement cancels it.
 function suppressNextGestClick() {
   _gestSuppressClick = true;
   setTimeout(() => _gestSuppressClick = false, 400);
 }
-function gestStart(e, sel, onSwipe, onHold) {
+function gestStart(e, sel, onHold) {
   if (e.pointerType === 'mouse' && e.button !== 0) return;
-  const el = e.currentTarget.closest(sel) || e.currentTarget;
   _gesture = {
-    el, x: e.clientX, y: e.clientY, dx: 0, swiping: false, onSwipe,
+    x: e.clientX, y: e.clientY,
     lpTimer: setTimeout(() => {
-      if (!_gesture || _gesture.swiping) return;
+      if (!_gesture) return;
       _gesture = null;
-      el.classList.remove('swiping');
-      el.style.transform = '';
       suppressNextGestClick();
       if (navigator.vibrate) navigator.vibrate(10);
       onHold();
@@ -1978,42 +1977,12 @@ function gestStart(e, sel, onSwipe, onHold) {
 }
 function gestMove(e) {
   if (!_gesture) return;
-  const dx = e.clientX - _gesture.x, dy = e.clientY - _gesture.y;
-  if (!_gesture.swiping) {
-    // Vertical movement means the user is scrolling — bail out entirely
-    if (Math.abs(dy) > 12 && Math.abs(dy) > Math.abs(dx)) { gestCancel(); return; }
-    if (Math.abs(dx) > 12) {
-      _gesture.swiping = true;
-      clearTimeout(_gesture.lpTimer);
-      _gesture.el.classList.add('swiping');
-      // Capture only once a swipe starts so plain taps on inner buttons still work
-      try { _gesture.el.setPointerCapture(e.pointerId); } catch {}
-    }
-  }
-  if (_gesture.swiping) {
-    _gesture.dx = dx;
-    _gesture.el.style.transform = `translateX(${Math.max(-90, Math.min(90, dx))}px)`;
-  }
+  // Movement means scrolling or a tab swipe — not a long-press
+  if (Math.abs(e.clientX - _gesture.x) > 12 || Math.abs(e.clientY - _gesture.y) > 12) gestCancel();
 }
-function gestEnd() {
-  if (!_gesture) return;
-  const g = _gesture; _gesture = null;
-  clearTimeout(g.lpTimer);
-  g.el.classList.remove('swiping');
-  g.el.style.transform = '';
-  if (g.swiping) {
-    suppressNextGestClick();
-    if (Math.abs(g.dx) > 60) g.onSwipe();
-  }
-}
-function gestCancel() {
-  if (!_gesture) return;
-  clearTimeout(_gesture.lpTimer);
-  _gesture.el.classList.remove('swiping');
-  _gesture.el.style.transform = '';
-  _gesture = null;
-}
-function gestLeave() { if (_gesture && !_gesture.swiping) gestCancel(); }
+function gestEnd()    { gestCancel(); }
+function gestCancel() { if (_gesture) { clearTimeout(_gesture.lpTimer); _gesture = null; } }
+function gestLeave()  { gestCancel(); }
 function closeCatSheet() { _catSheet = null; render(); }
 function sheetEditCat()  { const k = _catSheet; _catSheet = null; _catsEditing = true; _catEditKey = k; render(); }
 function sheetDelCat()   { const k = _catSheet; _catSheet = null; render(); delCat(k); }
@@ -2627,15 +2596,16 @@ const TAB_ORDER = ['home', 'cats', 'log', 'history', 'settings'];
 const _screenEl = document.getElementById('screen');
 _screenEl.addEventListener('pointerdown', (e) => {
   if (e.pointerType === 'mouse' && e.button !== 0) return;
-  if (_gesture || _catDrag || _quickDrag || _catSheet || _histSheet) return;
+  if (_catDrag || _quickDrag || _catSheet || _histSheet) return;
   if (shouldOnboard()) return;
   if (e.target.closest('input, select, textarea')) return;
   _tabSwipe = {x: e.clientX, y: e.clientY, id: e.pointerId};
 });
 _screenEl.addEventListener('pointermove', (e) => {
   if (!_tabSwipe || e.pointerId !== _tabSwipe.id) return;
-  // A card gesture or drag claimed the pointer after we started tracking
-  if (_gesture || _catDrag || _quickDrag) { _tabSwipe = null; return; }
+  // A drag or action sheet claimed the pointer after we started tracking.
+  // (_gesture is long-press-only now and cancels itself on movement.)
+  if (_catDrag || _quickDrag || _catSheet || _histSheet) { _tabSwipe = null; return; }
   const dx = e.clientX - _tabSwipe.x, dy = e.clientY - _tabSwipe.y;
   if (Math.abs(dy) > 30 && Math.abs(dy) > Math.abs(dx)) { _tabSwipe = null; return; } // scrolling
   if (Math.abs(dx) > 70 && Math.abs(dx) > Math.abs(dy) * 1.5) {
