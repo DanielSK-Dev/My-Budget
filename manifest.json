@@ -1,6 +1,6 @@
 {
-  "name": "Budget Tracker",
-  "short_name": "Budget",
+  "name": "Checkpoint — Paycheck Budget",
+  "short_name": "Checkpoint",
   "start_url": "/My-Budget/",
   "scope": "/My-Budget/",
   "display": "standalone",

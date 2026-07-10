@@ -1,14 +1,14 @@
 # Google Play Store Listing — copy-paste content
 
 ## App name (30 chars max)
-My Budget — Pay-Period Budget
+Checkpoint: Paycheck Budget
 
 ## Short description (80 chars max)
 Budget by paycheck, not by month. Offline, private, free — no account needed.
 
 ## Full description (4000 chars max)
 
-Most budget apps assume you get paid once a month. My Budget is built around how you're actually paid — weekly, bi-weekly, or monthly — so every budget, rollover, and savings number lines up with your real paychecks.
+Most budget apps assume you get paid once a month. Checkpoint is built around how you're actually paid — weekly, bi-weekly, or monthly — so every budget, rollover, and savings number lines up with your real paychecks.
 
 **Budget by pay period**
 Set your pay frequency and payday once. Every category budget is allocated per paycheck, and a new period starts automatically each payday.
@@ -39,7 +39,7 @@ Every period is archived with its transactions and notes. Compare this period to
 • Export/backup anytime (JSON or CSV)
 • Free, forever
 
-Whether you're paid every Friday or twice a month, My Budget keeps your money organized around your actual life.
+Whether you're paid every Friday or twice a month, Checkpoint keeps your money organized around your actual life.
 
 ## Category
 Finance
