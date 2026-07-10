@@ -22,7 +22,10 @@
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--font);overflow:hidden;overscroll-behavior-y:none;position:fixed;width:100%;top:0;left:0}
 #app{display:flex;flex-direction:column;height:100vh;height:100dvh;width:100%}
-#screen{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;padding:20px 16px 0;overscroll-behavior-y:contain}
+/* touch-action:pan-y — the browser handles vertical scrolling but leaves
+   horizontal touch movement to JS, so the swipe-between-tabs gesture gets
+   pointermove events instead of an immediate pointercancel. */
+#screen{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;padding:20px 16px 0;overscroll-behavior-y:contain;touch-action:pan-y}
 /* Bottom spacer as a real element: padding-bottom on a scroll container is
    not counted in the scrollable area on some engines, which both hid the
    bottom gap and clamped the auto-scroll short of its target. */
@@ -381,7 +384,7 @@ details[open] > summary .summary-chevron {
 <div id="toast"></div>
 <script>
 // ── VERSION ───────────────────────────────────────────────────────────────
-const APP_VERSION = '1.18.0';
+const APP_VERSION = '1.18.1';
 // Tip-jar link (Ko-fi / Buy Me a Coffee / GitHub Sponsors). Shown in Settings
 // on the web/PWA only — never in the native Play Store build, where external
 // payment links violate Google Play's payments policy. Leave '' to hide.
