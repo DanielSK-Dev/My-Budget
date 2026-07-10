@@ -146,6 +146,10 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 .sheet-btn.cancel{background:none;color:var(--muted);border:none;margin-bottom:0}
 @keyframes fadeIn{from{opacity:0}to{opacity:1}}
 @keyframes sheetUp{from{transform:translateY(40px);opacity:0}to{transform:translateY(0);opacity:1}}
+/* First-run onboarding */
+.ob-opt{display:block;width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:10px;padding:14px;font-size:15px;cursor:pointer;margin-bottom:8px;font-family:inherit;text-align:left}
+.ob-opt:last-child{margin-bottom:0}
+.ob-opt.sel{border-color:var(--green);color:var(--green)}
 .cat-card summary{user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;touch-action:pan-y}
 .cat-card{transition:transform .15s ease}
 .cat-card.swiping{transition:none}
@@ -372,7 +376,7 @@ details[open] > summary .summary-chevron {
 <div id="toast"></div>
 <script>
 // ── VERSION ───────────────────────────────────────────────────────────────
-const APP_VERSION = '1.16.1';
+const APP_VERSION = '1.17.0';
 // Tip-jar link (Ko-fi / Buy Me a Coffee / GitHub Sponsors). Shown in Settings
 // on the web/PWA only — never in the native Play Store build, where external
 // payment links violate Google Play's payments policy. Leave '' to hide.
@@ -424,6 +428,8 @@ let _quickEditKey   = null;  // which quick add is open in edit mode
 let _quickDrag      = null;  // quick add drag-to-reorder state
 let _fcEditIdx      = null;  // which fixedCost card is open in edit mode
 let _recEditId      = null;  // which recurring-template card is open in edit mode
+let _obStep         = 0;     // first-run onboarding step (0-2)
+let _obData         = null;  // onboarding answers, initialized on first render
 // ── LOAD / SAVE ───────────────────────────────────────────────────────────
 function load() {
   try {
@@ -455,6 +461,8 @@ function load() {
     }
     if (typeof S.settings.budgetAlerts === 'undefined') S.settings.budgetAlerts = true;
     if (!Array.isArray(S.settings.recurring)) S.settings.recurring = [];
+    // Anyone with existing data never sees first-run onboarding
+    if (S.settings.lastPayday || S.currentPeriod || (S.history||[]).length) S.settings.onboarded = true;
     if (S.currentPeriod && !Array.isArray(S.currentPeriod.planned)) S.currentPeriod.planned = [];
   } catch(e) {}
   checkAutoRollover();
@@ -800,8 +808,11 @@ function switchTab(t) {
   render();
 }
 function render() {
-  document.getElementById('screen').innerHTML =
-    TAB === 'home'     ? renderHome()
+  const ob = shouldOnboard();
+  document.getElementById('nav').style.display = ob ? 'none' : 'flex';
+  document.getElementById('screen').innerHTML = ob
+    ? renderOnboarding()
+    : TAB === 'home'   ? renderHome()
     : TAB === 'cats'   ? renderCats()
     : TAB === 'log'    ? renderLog()
     : TAB === 'history'? renderHistory()
@@ -810,6 +821,82 @@ function render() {
     const msg = _autoRollMsg; _autoRollMsg = null;
     setTimeout(() => toast(msg), 150);
   }
+}
+// ── FIRST-RUN ONBOARDING ──────────────────────────────────────────────────
+function shouldOnboard() {
+  return !S.settings.onboarded && !S.settings.lastPayday && !S.currentPeriod && !(S.history||[]).length;
+}
+function renderOnboarding() {
+  if (!_obData) _obData = {payFreq: 'biweekly', lastPayday: todayISO(), income: ''};
+  const dots = `<div style="display:flex;gap:6px;justify-content:center;margin-bottom:24px">${[0,1,2].map(i =>
+    `<div style="width:8px;height:8px;border-radius:4px;background:${i <= _obStep ? 'var(--green)' : 'var(--surface2)'}"></div>`).join('')}</div>`;
+  const skip = `<div style="text-align:center;margin-top:18px"><span onclick="obSkip()" style="color:var(--muted);font-size:13px;cursor:pointer;text-decoration:underline">Skip setup</span></div>`;
+  const back = `<button onclick="obBack()" style="background:none;border:none;color:var(--muted);font-size:13px;cursor:pointer;padding:10px 0 0;font-family:inherit">← Back</button>`;
+
+  if (_obStep === 0) return `
+    <div style="padding-top:7vh">${dots}
+      <div style="text-align:center;margin-bottom:28px">
+        <div style="font-size:40px;margin-bottom:12px">👋</div>
+        <h1 style="font-size:26px;font-weight:500">Welcome to My Budget</h1>
+        <p style="color:var(--muted);font-size:14px;margin-top:8px;line-height:1.5">Budgeting built around your paychecks —<br>not calendar months.</p>
+      </div>
+      <div class="card">
+        <div class="card-label">How often do you get paid?</div>
+        ${[['weekly','Weekly'],['biweekly','Every 2 weeks'],['monthly','Monthly']].map(([v,l]) =>
+          `<button class="ob-opt${_obData.payFreq === v ? ' sel' : ''}" onclick="obFreq('${v}')">${l}</button>`).join('')}
+      </div>${skip}
+    </div>`;
+
+  if (_obStep === 1) return `
+    <div style="padding-top:7vh">${dots}
+      <div style="text-align:center;margin-bottom:28px">
+        <h1 style="font-size:24px;font-weight:500">When were you last paid?</h1>
+        <p style="color:var(--muted);font-size:14px;margin-top:8px;line-height:1.5">Your budget periods line up with paydays.<br>Pick your most recent one.</p>
+      </div>
+      <div class="card">
+        <div class="field"><label>Most recent payday</label>
+          <input type="date" id="ob-date" value="${_obData.lastPayday}" max="${todayISO()}"/>
+        </div>
+        <button class="btn btn-primary" onclick="obNext()">Continue</button>
+        ${back}
+      </div>${skip}
+    </div>`;
+
+  return `
+    <div style="padding-top:7vh">${dots}
+      <div style="text-align:center;margin-bottom:28px">
+        <h1 style="font-size:24px;font-weight:500">How much per paycheck?</h1>
+        <p style="color:var(--muted);font-size:14px;margin-top:8px;line-height:1.5">A rough number is fine — you can change it<br>anytime by tapping income on the Period tab.</p>
+      </div>
+      <div class="card">
+        <div class="field"><label>Paycheck amount ($) — optional</label>
+          <input type="number" id="ob-income" value="${_obData.income}" placeholder="0.00" inputmode="decimal" min="0" step="0.01"/>
+        </div>
+        <button class="btn btn-primary" onclick="obFinish()">Start my first period</button>
+        ${back}
+      </div>
+      <div style="font-size:12px;color:var(--muted);text-align:center;margin-top:16px;line-height:1.5">We've added starter categories —<br>customize them in the Budgets tab.</div>
+    </div>`;
+}
+function obFreq(v) { _obData.payFreq = v; _obStep = 1; render(); }
+function obBack()  { _obStep = Math.max(0, _obStep - 1); render(); }
+function obNext()  {
+  const d = document.getElementById('ob-date')?.value;
+  if (!d) { toast('Pick a date'); return; }
+  _obData.lastPayday = d; _obStep = 2; render();
+}
+function obSkip()  { S.settings.onboarded = true; save(); render(); }
+function obFinish() {
+  const inc = parseFloat(document.getElementById('ob-income')?.value);
+  S.settings.payFreq    = _obData.payFreq;
+  S.settings.lastPayday = _obData.lastPayday;
+  S.settings.onboarded  = true;
+  const most = getMostRecentPayday();
+  S.currentPeriod = newPeriodObj(most ? most.toISOString().slice(0,10) : todayISO(), {});
+  if (!isNaN(inc) && inc > 0) S.currentPeriod.income = inc;
+  save(); _obStep = 0;
+  switchTab('home');
+  setTimeout(() => toast("You're all set!"), 200);
 }
 // ── HOME ──────────────────────────────────────────────────────────────────
 function renderHome() {
@@ -2151,10 +2238,7 @@ function exportCSV() {
     });
   });
   const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(new Blob([csv], {type:'text/csv'}));
-  a.download = `budget_${new Date().toISOString().slice(0,10)}.csv`;
-  a.click();
+  downloadFile(`budget_${new Date().toISOString().slice(0,10)}.csv`, csv, 'text/csv');
 }
 // ── LINE CHART (spending by day, this vs last period) ─────────────────────
 function buildLineChart(cur, prev) {
@@ -2346,12 +2430,32 @@ function quickAdd(i) {
   switchTab('home');
 }
 // ── DATA MANAGEMENT ───────────────────────────────────────────────────────
-function exportData() {
-  const blob = new Blob([JSON.stringify(S, null, 2)], {type: 'application/json'});
+const isNative = () => !!window.Capacitor?.isNativePlatform?.();
+// Blob-URL downloads fail silently inside the Android WebView, so the native
+// app writes the file with the Filesystem plugin and opens the share sheet
+// (Drive, email, etc.). The web/PWA keeps the plain download.
+async function nativeShareFile(filename, text) {
+  const {Filesystem, Share} = window.Capacitor.Plugins;
+  const res = await Filesystem.writeFile({path: filename, data: text, directory: 'CACHE', encoding: 'utf8'});
+  await Share.share({title: filename, url: res.uri});
+}
+function downloadFile(filename, text, mime) {
+  if (isNative()) {
+    nativeShareFile(filename, text).catch(e => {
+      if (String(e?.message||e).toLowerCase().includes('cancel')) return; // user closed share sheet
+      toast('Export failed — ' + (e?.message || e));
+    });
+    return;
+  }
+  const blob = new Blob([text], {type: mime});
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement('a');
-  a.href = url; a.download = `budget_backup_${new Date().toISOString().slice(0,10)}.json`;
+  a.href = url; a.download = filename;
   a.click(); URL.revokeObjectURL(url);
+}
+function exportData() {
+  downloadFile(`budget_backup_${new Date().toISOString().slice(0,10)}.json`,
+    JSON.stringify(S, null, 2), 'application/json');
 }
 function importData(event) {
   const file = event.target.files[0]; if (!file) return;
@@ -2497,8 +2601,24 @@ document.getElementById('screen').addEventListener('click', (e) => {
   animateDetails(details, !details.open);
 });
 
+// ── NATIVE SHELL (Capacitor) ──────────────────────────────────────────────
+function initNative() {
+  if (!isNative()) return;
+  const P = window.Capacitor.Plugins;
+  // Status bar: dark background, light icons (config in capacitor.config.json
+  // covers launch; this keeps it correct after webview reloads too)
+  P.StatusBar?.setStyle({style: 'DARK'}).catch(() => {});
+  P.StatusBar?.setBackgroundColor?.({color: '#0a0a0a'}).catch(() => {});
+  // Android back button: close any open sheet, then go home, then exit
+  P.App?.addListener('backButton', () => {
+    if (_catSheet || _histSheet) { _catSheet = null; _histSheet = null; render(); return; }
+    if (TAB !== 'home') { switchTab('home'); return; }
+    P.App.exitApp();
+  });
+}
 // ── BOOT ──────────────────────────────────────────────────────────────────
 load();
+initNative();
 render();
 refreshUpdateStatus();
 </script>
