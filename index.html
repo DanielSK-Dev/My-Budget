@@ -149,6 +149,13 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 .sheet-btn.cancel{background:none;color:var(--muted);border:none;margin-bottom:0}
 @keyframes fadeIn{from{opacity:0}to{opacity:1}}
 @keyframes sheetUp{from{transform:translateY(40px);opacity:0}to{transform:translateY(0);opacity:1}}
+/* Toggle switch */
+.tgl{position:relative;width:44px;height:26px;flex-shrink:0;cursor:pointer;display:inline-block}
+.tgl input{opacity:0;width:0;height:0;position:absolute}
+.tgl-track{position:absolute;inset:0;background:var(--surface2);border:1px solid var(--border);border-radius:13px;transition:background .2s,border-color .2s}
+.tgl-track::after{content:'';position:absolute;top:2px;left:2px;width:20px;height:20px;border-radius:50%;background:var(--muted);transition:transform .2s,background .2s}
+.tgl input:checked + .tgl-track{background:var(--green-dim);border-color:var(--green)}
+.tgl input:checked + .tgl-track::after{transform:translateX(18px);background:var(--green)}
 /* First-run onboarding */
 .ob-opt{display:block;width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:10px;padding:14px;font-size:15px;cursor:pointer;margin-bottom:8px;font-family:inherit;text-align:left}
 .ob-opt:last-child{margin-bottom:0}
@@ -384,7 +391,7 @@ details[open] > summary .summary-chevron {
 <div id="toast"></div>
 <script>
 // ── VERSION ───────────────────────────────────────────────────────────────
-const APP_VERSION = '1.21.0';
+const APP_VERSION = '1.21.1';
 // Tip-jar link (Ko-fi / Buy Me a Coffee / GitHub Sponsors). Shown in Settings
 // on the web/PWA only — never in the native Play Store build, where external
 // payment links violate Google Play's payments policy. Leave '' to hide.
@@ -1575,10 +1582,7 @@ function renderCats() {
     <div class="card" style="margin-top:8px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
         <span style="font-size:13px">Budget alerts</span>
-        <select onchange="updateSetting('budgetAlerts', this.value==='on')" style="width:auto;padding:6px 10px;font-size:13px">
-          <option value="on"  ${s.budgetAlerts!==false?'selected':''}>On</option>
-          <option value="off" ${s.budgetAlerts===false?'selected':''}>Off</option>
-        </select>
+        <label class="tgl"><input type="checkbox" ${s.budgetAlerts!==false ? 'checked' : ''} onchange="updateSetting('budgetAlerts', this.checked)"/><span class="tgl-track"></span></label>
       </div>
     </div>` : ''}
     ${addBtn}
@@ -2155,10 +2159,7 @@ function renderSettings() {
           <div style="font-size:13px">Daily brief</div>
           <div style="font-size:11px;color:var(--muted);margin-top:2px">Morning summary of where your budgets stand</div>
         </div>
-        <select onchange="setNotify('brief', this.value==='on')" style="width:auto;padding:6px 10px;font-size:13px">
-          <option value="off" ${!s.notify?.brief ? 'selected' : ''}>Off</option>
-          <option value="on"  ${s.notify?.brief  ? 'selected' : ''}>On</option>
-        </select>
+        <label class="tgl"><input type="checkbox" ${s.notify?.brief ? 'checked' : ''} onchange="setNotify('brief', this.checked)"/><span class="tgl-track"></span></label>
       </div>
       ${s.notify?.brief ? `
       <div class="field" style="margin-bottom:14px">
@@ -2170,20 +2171,14 @@ function renderSettings() {
           <div style="font-size:13px">Budget alerts</div>
           <div style="font-size:11px;color:var(--muted);margin-top:2px">Notify when a budget hits 80% or goes over</div>
         </div>
-        <select onchange="setNotify('spend', this.value==='on')" style="width:auto;padding:6px 10px;font-size:13px">
-          <option value="off" ${!s.notify?.spend ? 'selected' : ''}>Off</option>
-          <option value="on"  ${s.notify?.spend  ? 'selected' : ''}>On</option>
-        </select>
+        <label class="tgl"><input type="checkbox" ${s.notify?.spend ? 'checked' : ''} onchange="setNotify('spend', this.checked)"/><span class="tgl-track"></span></label>
       </div>
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:${s.notify?.smart ? '8px' : '14px'}">
         <div>
           <div style="font-size:13px">Smart reminders</div>
           <div style="font-size:11px;color:var(--muted);margin-top:2px">Learns your habits (like gas every Monday) and checks food budgets before lunch &amp; dinner</div>
         </div>
-        <select onchange="setNotify('smart', this.value==='on')" style="width:auto;padding:6px 10px;font-size:13px">
-          <option value="off" ${!s.notify?.smart ? 'selected' : ''}>Off</option>
-          <option value="on"  ${s.notify?.smart  ? 'selected' : ''}>On</option>
-        </select>
+        <label class="tgl"><input type="checkbox" ${s.notify?.smart ? 'checked' : ''} onchange="setNotify('smart', this.checked)"/><span class="tgl-track"></span></label>
       </div>
       ${s.notify?.smart ? (() => {
         const habits = detectHabits();
