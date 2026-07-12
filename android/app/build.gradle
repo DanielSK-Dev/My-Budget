@@ -5,11 +5,18 @@ apply plugin: 'com.android.application'
 def versionProps = new Properties()
 file('version.properties').withInputStream { versionProps.load(it) }
 
-// Release signing reads ../keystore.properties (gitignored). Without it the
-// release build is unsigned and Play will reject it — see ANDROID.md.
-def keystorePropsFile = rootProject.file('keystore.properties')
+// Release signing reads keystore.properties from the REPO ROOT (preferred,
+// where ANDROID.md says to put it) or from android/ as a fallback. Without
+// it the release build is unsigned and Play will reject the upload.
+// (gradle's rootProject is the android/ folder, hence the ../)
+def keystorePropsFile = rootProject.file('../keystore.properties')
+if (!keystorePropsFile.exists()) keystorePropsFile = rootProject.file('keystore.properties')
 def keystoreProps = new Properties()
-if (keystorePropsFile.exists()) keystorePropsFile.withInputStream { keystoreProps.load(it) }
+if (keystorePropsFile.exists()) {
+    keystorePropsFile.withInputStream { keystoreProps.load(it) }
+} else {
+    println '⚠ keystore.properties not found — release builds will be UNSIGNED'
+}
 
 android {
     namespace = "com.danielsk.mybudget"
@@ -30,7 +37,8 @@ android {
     signingConfigs {
         if (keystorePropsFile.exists()) {
             release {
-                storeFile rootProject.file(keystoreProps['storeFile'])
+                // storeFile is resolved relative to wherever keystore.properties lives
+                storeFile new File(keystorePropsFile.parentFile, keystoreProps['storeFile'])
                 storePassword keystoreProps['storePassword']
                 keyAlias keystoreProps['keyAlias']
                 keyPassword keystoreProps['keyPassword']
