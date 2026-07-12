@@ -384,7 +384,7 @@ details[open] > summary .summary-chevron {
 <div id="toast"></div>
 <script>
 // ── VERSION ───────────────────────────────────────────────────────────────
-const APP_VERSION = '1.19.0';
+const APP_VERSION = '1.20.0';
 // Tip-jar link (Ko-fi / Buy Me a Coffee / GitHub Sponsors). Shown in Settings
 // on the web/PWA only — never in the native Play Store build, where external
 // payment links violate Google Play's payments policy. Leave '' to hide.
@@ -440,6 +440,8 @@ let _obStep         = 0;     // first-run onboarding step (0-2)
 let _obData         = null;  // onboarding answers, initialized on first render
 let _tabSwipe       = null;  // swipe-between-tabs tracking state
 let _screenSlideDir = null;  // 'l'|'r' — slide animation for the next render
+let _briefMode      = false; // daily-brief overlay is open
+let _briefStep      = 0;     // 0 = summary, 1..n = category walkthrough
 // ── LOAD / SAVE ───────────────────────────────────────────────────────────
 function load() {
   try {
@@ -473,6 +475,7 @@ function load() {
     if (!Array.isArray(S.settings.recurring)) S.settings.recurring = [];
     // Anyone with existing data never sees first-run onboarding
     if (S.settings.lastPayday || S.currentPeriod || (S.history||[]).length) S.settings.onboarded = true;
+    if (!S.settings.notify) S.settings.notify = {brief: false, briefTime: '08:00', spend: false};
     if (S.currentPeriod && !Array.isArray(S.currentPeriod.planned)) S.currentPeriod.planned = [];
   } catch(e) {}
   checkAutoRollover();
@@ -811,7 +814,7 @@ function newPeriodObj(isoDate, carry) {
 let TAB = 'home';
 function switchTab(t) {
   TAB = t;
-  _incEditing = false;
+  _incEditing = false; _briefMode = false;
   _histEdit = null; _histAdd = null; _catsEditing = false; _catEditKey = null; _quickEditing = false; _quickEditKey = null; _catSheet = null; _histSheet = null;
   _fcEditIdx = null; _recEditId = null;
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === t));
@@ -819,9 +822,11 @@ function switchTab(t) {
 }
 function render() {
   const ob = shouldOnboard();
-  document.getElementById('nav').style.display = ob ? 'none' : 'flex';
+  const brief = !ob && _briefMode;
+  document.getElementById('nav').style.display = (ob || brief) ? 'none' : 'flex';
   document.getElementById('screen').innerHTML = ob
     ? renderOnboarding()
+    : brief            ? renderBrief()
     : TAB === 'home'   ? renderHome()
     : TAB === 'cats'   ? renderCats()
     : TAB === 'log'    ? renderLog()
@@ -915,6 +920,172 @@ function obFinish() {
   save(); _obStep = 0;
   switchTab('home');
   setTimeout(() => toast("You're all set!"), 200);
+}
+// ── DAILY BRIEF ───────────────────────────────────────────────────────────
+// Per-category standing for the brief: how much is left, how the spend pace
+// compares to how far through the period we are, and a status bucket.
+function buildBriefData() {
+  const range = S.currentPeriod ? getPeriodDateRange(S.currentPeriod) : null;
+  let elapsedPct = null;
+  if (range) {
+    const now = new Date(); now.setHours(0,0,0,0);
+    const total = Math.round((range.end - range.start) / MS_DAY) + 1;
+    const gone  = Math.min(total, Math.max(0, Math.round((now - range.start) / MS_DAY) + 1));
+    elapsedPct = Math.round(gone / total * 100);
+  }
+  const items = Object.entries(S.settings.cats)
+    .filter(([k]) => catBudget(k) > 0 || catDebt(k) > 0 || catSpent(k) > 0)
+    .map(([k, c]) => {
+      const budget = catBudget(k), debt = catDebt(k);
+      const spent  = catSpent(k) + debt;
+      const left   = budget - spent;
+      const pct    = budget > 0 ? Math.round(spent / budget * 100) : (spent > 0 ? 100 : 0);
+      let status = 'ok';
+      if      (pct >= 100)                                   status = 'over';
+      else if (pct >= 80)                                    status = 'close';
+      else if (elapsedPct !== null && pct > elapsedPct + 10) status = 'ahead';
+      return {k, label: c.label, color: c.color, budget, spent, left, pct, debt, status};
+    });
+  return {items, elapsedPct, notable: items.filter(i => i.status !== 'ok')};
+}
+function openBrief()  { _briefMode = true; _briefStep = 0; render(); }
+function closeBrief() { _briefMode = false; _briefStep = 0; render(); }
+function briefNext()  { _briefStep++; render(); }
+function briefBack()  { _briefStep = Math.max(0, _briefStep - 1); render(); }
+function renderBrief() {
+  const {items, elapsedPct, notable} = buildBriefData();
+  const today = new Date().toLocaleDateString('en-US', {weekday: 'long', month: 'short', day: 'numeric'});
+  const totalLeft = items.reduce((a, i) => a + Math.max(0, i.left), 0);
+  const closeX = `<div style="text-align:center;margin-top:18px"><span onclick="closeBrief()" style="color:var(--muted);font-size:13px;cursor:pointer;text-decoration:underline">Close</span></div>`;
+  const steps = notable.length + 1;
+  const dots = `<div style="display:flex;gap:6px;justify-content:center;margin-bottom:24px">${Array.from({length: steps}, (_, i) =>
+    `<div style="width:8px;height:8px;border-radius:4px;background:${i <= _briefStep ? 'var(--green)' : 'var(--surface2)'}"></div>`).join('')}</div>`;
+
+  if (!S.currentPeriod || items.length === 0) return `
+    <div style="padding-top:10vh;text-align:center">
+      <div style="font-size:40px;margin-bottom:12px">☀️</div>
+      <h1 style="font-size:24px;font-weight:500">Daily brief</h1>
+      <p style="color:var(--muted);font-size:14px;margin-top:10px">Nothing to report — no active budgets yet.</p>
+      ${closeX}
+    </div>`;
+
+  // ── Summary screen ──────────────────────────────────────────────────────
+  if (_briefStep === 0) {
+    const badge = i =>
+      i.status === 'over'  ? '<span class="badge r">over</span>'
+      : i.status === 'close' ? '<span class="badge" style="background:rgba(255,179,71,.15);color:var(--amber)">almost spent</span>'
+      : i.status === 'ahead' ? '<span class="badge" style="background:rgba(255,179,71,.15);color:var(--amber)">ahead of pace</span>'
+      : '<span class="badge g">on track</span>';
+    const rows = items.map(i => `
+      <div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border)">
+        <div class="pip" style="background:${i.color};height:18px"></div>
+        <div style="flex:1;font-size:13px;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${i.label}</div>
+        ${badge(i)}
+        <div style="font-family:var(--font-mono);font-size:13px;color:${i.left < 0 ? 'var(--red)' : 'var(--text)'};width:76px;text-align:right">${i.left < 0 ? '−' : ''}${fmt(i.left)}</div>
+      </div>`).join('');
+    return `
+      <div style="padding-top:5vh">${dots}
+        <div style="text-align:center;margin-bottom:22px">
+          <div style="font-size:34px;margin-bottom:10px">☀️</div>
+          <h1 style="font-size:24px;font-weight:500">${today}</h1>
+          <div style="font-size:32px;font-family:var(--font-mono);color:var(--green);margin-top:12px">${fmt(totalLeft)}</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:4px">left to spend${elapsedPct !== null ? ` · ${elapsedPct}% of the period gone` : ''}</div>
+        </div>
+        <div class="card">
+          <div class="card-label">Your budgets</div>
+          ${rows}
+        </div>
+        ${notable.length
+          ? `<button class="btn btn-primary" onclick="briefNext()">Show me → (${notable.length} need${notable.length > 1 ? '' : 's'} attention)</button>`
+          : `<div style="text-align:center;color:var(--green);font-size:14px;margin-top:6px">✓ Everything is on track</div>`}
+        ${closeX}
+      </div>`;
+  }
+
+  // ── Category walkthrough screens ────────────────────────────────────────
+  const i = notable[Math.min(_briefStep, notable.length) - 1];
+  const msg =
+    i.status === 'over'  ? `Over budget by ${fmt(Math.abs(i.left))}. Anything else spent here becomes debt for next period.`
+    : i.status === 'close' ? `${i.pct}% used — only ${fmt(Math.max(0, i.left))} left. Spend carefully.`
+    : `${i.pct}% used but only ${elapsedPct}% of the period has passed — you're ahead of pace, ease up a little.`;
+  const barCol = i.status === 'over' ? 'var(--red)' : 'var(--amber)';
+  const last = _briefStep >= notable.length;
+  return `
+    <div style="padding-top:5vh">${dots}
+      <div style="text-align:center;margin-bottom:24px">
+        <div style="display:inline-flex;align-items:center;gap:10px">
+          <div class="pip" style="background:${i.color};height:24px"></div>
+          <h1 style="font-size:24px;font-weight:500">${i.label}</h1>
+        </div>
+        <div style="font-size:36px;font-family:var(--font-mono);color:${i.left < 0 ? 'var(--red)' : 'var(--text)'};margin-top:14px">${i.left < 0 ? '−' : ''}${fmt(i.left)}</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:4px">left of ${fmt(i.budget)}</div>
+      </div>
+      <div class="card">
+        <div class="hero-pace-track" style="margin:6px 0 4px">
+          <div class="hero-pace-fill" style="width:${Math.min(100, i.pct)}%;background:${barCol}"></div>
+          ${elapsedPct !== null ? `<div class="hero-pace-marker" style="left:${elapsedPct}%"></div>` : ''}
+        </div>
+        <div class="hero-pace-lbl">spent ${i.pct}% · marker = where today sits in the period</div>
+        <div style="font-size:13px;color:var(--muted);line-height:1.55;margin-top:12px">${msg}</div>
+        ${i.debt > 0 ? `<div style="font-size:12px;color:var(--red);margin-top:8px">Includes ${fmt(i.debt)} of debt carried from last period.</div>` : ''}
+      </div>
+      <div style="display:flex;gap:10px;margin-top:4px">
+        <button class="btn btn-ghost" style="flex:1" onclick="briefBack()">← Back</button>
+        <button class="btn btn-primary" style="flex:1" onclick="${last ? 'closeBrief()' : 'briefNext()'}">${last ? 'Done' : 'Next →'}</button>
+      </div>
+      ${closeX}
+    </div>`;
+}
+// ── NOTIFICATIONS (native only) ───────────────────────────────────────────
+async function setNotify(field, val) {
+  const n = S.settings.notify || (S.settings.notify = {brief: false, briefTime: '08:00', spend: false});
+  if ((field === 'brief' || field === 'spend') && val && isNative()) {
+    try {
+      const p = await window.Capacitor.Plugins.LocalNotifications.requestPermissions();
+      if (p.display !== 'granted') { toast('Allow notifications in system settings first'); val = false; }
+    } catch { val = false; }
+  }
+  n[field] = val;
+  save(); render();
+  scheduleBriefNotification();
+  if (field === 'brief' && n.brief) toast(`Daily brief scheduled for ${n.briefTime}`);
+}
+// (Re)schedules tomorrow's brief with a summary as of the last time the app
+// was open — called at boot, on settings change, and when the app backgrounds.
+async function scheduleBriefNotification() {
+  if (!isNative()) return;
+  const LN = window.Capacitor.Plugins.LocalNotifications;
+  if (!LN) return;
+  try {
+    await LN.cancel({notifications: [{id: 1}]});
+    const n = S.settings.notify;
+    if (!n?.brief) return;
+    const perm = await LN.checkPermissions();
+    if (perm.display !== 'granted') return;
+    const [h, m] = (n.briefTime || '08:00').split(':').map(Number);
+    const {items, notable} = buildBriefData();
+    const totalLeft = items.reduce((a, i) => a + Math.max(0, i.left), 0);
+    const body = !items.length ? 'Tap to see where your budgets stand'
+      : !notable.length
+        ? `All ${items.length} budgets on track · ${fmt(totalLeft)} left to spend`
+        : `${fmt(totalLeft)} left · needs attention: ${notable.slice(0, 3).map(i => i.label).join(', ')}${notable.length > 3 ? '…' : ''}`;
+    await LN.schedule({notifications: [{
+      id: 1,
+      title: '☀️ Your daily brief',
+      body,
+      schedule: {on: {hour: h, minute: m}},
+      extra: {brief: true},
+    }]});
+  } catch (e) {}
+}
+// Immediate nudge when a budget crosses 80%/100% while logging spending
+function notifySpend(body) {
+  if (!isNative() || !S.settings.notify?.spend) return;
+  window.Capacitor.Plugins.LocalNotifications?.schedule({notifications: [{
+    id: 2000 + Math.floor(Math.random() * 1000000),
+    title: 'Budget alert',
+    body,
+  }]}).catch(() => {});
 }
 // ── HOME ──────────────────────────────────────────────────────────────────
 function renderHome() {
@@ -1877,6 +2048,38 @@ function renderSettings() {
     </div>
 
     <div class="card">
+      <div class="card-label">Notifications</div>
+      ${isNative() ? `
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:${s.notify?.brief ? '10px' : '14px'}">
+        <div>
+          <div style="font-size:13px">Daily brief</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:2px">Morning summary of where your budgets stand</div>
+        </div>
+        <select onchange="setNotify('brief', this.value==='on')" style="width:auto;padding:6px 10px;font-size:13px">
+          <option value="off" ${!s.notify?.brief ? 'selected' : ''}>Off</option>
+          <option value="on"  ${s.notify?.brief  ? 'selected' : ''}>On</option>
+        </select>
+      </div>
+      ${s.notify?.brief ? `
+      <div class="field" style="margin-bottom:14px">
+        <label>Brief time</label>
+        <input type="time" value="${s.notify?.briefTime || '08:00'}" onchange="setNotify('briefTime', this.value)"/>
+      </div>` : ''}
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+        <div>
+          <div style="font-size:13px">Budget alerts</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:2px">Notify when a budget hits 80% or goes over</div>
+        </div>
+        <select onchange="setNotify('spend', this.value==='on')" style="width:auto;padding:6px 10px;font-size:13px">
+          <option value="off" ${!s.notify?.spend ? 'selected' : ''}>Off</option>
+          <option value="on"  ${s.notify?.spend  ? 'selected' : ''}>On</option>
+        </select>
+      </div>` : `
+      <div style="font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.5">Scheduled notifications are available in the Android app. You can still preview the daily brief here.</div>`}
+      <button class="btn btn-ghost" onclick="openBrief()">☀️ Preview daily brief</button>
+    </div>
+
+    <div class="card">
       <div class="card-label">Data Management</div>
       <button class="btn btn-ghost" onclick="exportData()">Export Data (Backup)</button>
       <button class="btn btn-ghost" onclick="exportCSV()">Export as CSV</button>
@@ -2162,8 +2365,8 @@ function checkBudgetAlert(cat) {
   const spent = catSpent(cat) + catDebt(cat);
   const pct   = spent / budget * 100;
   const label = S.settings.cats[cat]?.label || cat;
-  if (pct >= 100) setTimeout(() => toast(`⚠ ${label} is over budget`), 200);
-  else if (pct >= 80) setTimeout(() => toast(`${label} at ${Math.round(pct)}% of budget`), 200);
+  if (pct >= 100)     { setTimeout(() => toast(`⚠ ${label} is over budget`), 200); notifySpend(`${label} is over budget — ${fmt(spent - budget)} past the limit`); }
+  else if (pct >= 80) { setTimeout(() => toast(`${label} at ${Math.round(pct)}% of budget`), 200); notifySpend(`${label} is at ${Math.round(pct)}% — ${fmt(budget - spent)} left`); }
 }
 // ── SMART CATEGORIZATION ──────────────────────────────────────────────────
 function suggestCat(val) {
@@ -2596,7 +2799,7 @@ const TAB_ORDER = ['home', 'cats', 'log', 'history', 'settings'];
 const _screenEl = document.getElementById('screen');
 _screenEl.addEventListener('pointerdown', (e) => {
   if (e.pointerType === 'mouse' && e.button !== 0) return;
-  if (_catDrag || _quickDrag || _catSheet || _histSheet) return;
+  if (_catDrag || _quickDrag || _catSheet || _histSheet || _briefMode) return;
   if (shouldOnboard()) return;
   if (e.target.closest('input, select, textarea')) return;
   _tabSwipe = {x: e.clientX, y: e.clientY, id: e.pointerId};
@@ -2629,12 +2832,21 @@ function initNative() {
   // covers launch; this keeps it correct after webview reloads too)
   P.StatusBar?.setStyle({style: 'DARK'}).catch(() => {});
   P.StatusBar?.setBackgroundColor?.({color: '#0a0a0a'}).catch(() => {});
-  // Android back button: close any open sheet, then go home, then exit
+  // Android back button: close brief/sheets first, then go home, then exit
   P.App?.addListener('backButton', () => {
+    if (_briefMode) { closeBrief(); return; }
     if (_catSheet || _histSheet) { _catSheet = null; _histSheet = null; render(); return; }
     if (TAB !== 'home') { switchTab('home'); return; }
     P.App.exitApp();
   });
+  // Tapping the daily-brief notification opens the walkthrough
+  P.LocalNotifications?.addListener('localNotificationActionPerformed', (ev) => {
+    if (ev?.notification?.id === 1 || ev?.notification?.extra?.brief) openBrief();
+  });
+  // Refresh tomorrow's brief content whenever the app goes to the background,
+  // so the notification reflects the latest spending.
+  P.App?.addListener('appStateChange', (st) => { if (!st.isActive) scheduleBriefNotification(); });
+  scheduleBriefNotification();
 }
 // ── BOOT ──────────────────────────────────────────────────────────────────
 load();
