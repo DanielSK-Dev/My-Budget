@@ -384,7 +384,7 @@ details[open] > summary .summary-chevron {
 <div id="toast"></div>
 <script>
 // ── VERSION ───────────────────────────────────────────────────────────────
-const APP_VERSION = '1.20.0';
+const APP_VERSION = '1.21.0';
 // Tip-jar link (Ko-fi / Buy Me a Coffee / GitHub Sponsors). Shown in Settings
 // on the web/PWA only — never in the native Play Store build, where external
 // payment links violate Google Play's payments policy. Leave '' to hide.
@@ -1047,8 +1047,9 @@ async function setNotify(field, val) {
   }
   n[field] = val;
   save(); render();
-  scheduleBriefNotification();
+  rearmNotifications();
   if (field === 'brief' && n.brief) toast(`Daily brief scheduled for ${n.briefTime}`);
+  if (field === 'smart' && n.smart) toast('Watching for spending patterns');
 }
 // (Re)schedules tomorrow's brief with a summary as of the last time the app
 // was open — called at boot, on settings change, and when the app backgrounds.
@@ -1086,6 +1087,105 @@ function notifySpend(body) {
     title: 'Budget alert',
     body,
   }]}).catch(() => {});
+}
+// ── SMART REMINDERS ───────────────────────────────────────────────────────
+// Everything is computed locally when the app closes: weekday spending
+// habits are detected from history, and one-shot notifications for the next
+// occurrences are scheduled with numbers that are accurate as of the last
+// time the data changed. No servers, no background processing.
+const DAY_NAMES = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+const MEAL_CAT_RE = /food|dining|eat|restaurant|takeout|lunch|snack|grocer/i;
+const SMART_IDS = [3, 4, ...Array.from({length: 12}, (_, i) => 100 + i)];
+// A category has a weekday habit when one weekday clearly dominates its
+// recent purchases: 3+ buys on that day, at least half of all buys, and a
+// margin of 2 over the runner-up day.
+function detectHabits() {
+  const cutoff = Date.now() - 70 * MS_DAY; // look back ~10 weeks
+  const byCat = {};
+  [...(S.history || []), S.currentPeriod].filter(Boolean)
+    .flatMap(p => p.expenses || [])
+    .forEach(e => {
+      if (!e.dateISO || !e.cat || !S.settings.cats[e.cat] || parseFloat(e.amount) <= 0) return;
+      const d = new Date(e.dateISO + 'T12:00:00');
+      if (d.getTime() < cutoff) return;
+      (byCat[e.cat] = byCat[e.cat] || []).push({wd: d.getDay(), e});
+    });
+  const habits = [];
+  Object.entries(byCat).forEach(([k, arr]) => {
+    if (arr.length < 3) return;
+    const counts = Array(7).fill(0);
+    arr.forEach(x => counts[x.wd]++);
+    const max = Math.max(...counts);
+    const wd  = counts.indexOf(max);
+    const second = Math.max(...counts.filter((_, i) => i !== wd));
+    if (max >= 3 && max >= arr.length * 0.5 && max >= second + 2) {
+      // Time of day: median logged hour for that weekday minus a 1h head
+      // start (log times accumulate from now on; default to 5pm until then)
+      const hours = arr.filter(x => x.wd === wd && x.e.loggedAt)
+        .map(x => new Date(x.e.loggedAt).getHours()).sort((a, b) => a - b);
+      const hour = hours.length >= 3
+        ? Math.min(20, Math.max(8, hours[Math.floor(hours.length / 2)] - 1))
+        : 17;
+      habits.push({k, weekday: wd, hour, count: max});
+    }
+  });
+  return habits;
+}
+function nextOccurrence(weekday, hour, minute) {
+  const d = new Date(); d.setHours(hour, minute || 0, 0, 0);
+  let add = ((weekday - d.getDay()) + 7) % 7;
+  if (add === 0 && d <= new Date()) add = 7;
+  d.setDate(d.getDate() + add);
+  return d;
+}
+function nextDaily(hour, minute) {
+  const d = new Date(); d.setHours(hour, minute, 0, 0);
+  if (d <= new Date()) d.setDate(d.getDate() + 1);
+  return d;
+}
+async function scheduleSmartNotifications() {
+  if (!isNative()) return;
+  const LN = window.Capacitor.Plugins.LocalNotifications;
+  if (!LN) return;
+  try {
+    await LN.cancel({notifications: SMART_IDS.map(id => ({id}))});
+    if (!S.settings.notify?.smart) return;
+    const perm = await LN.checkPermissions();
+    if (perm.display !== 'granted') return;
+    const {items} = buildBriefData();
+    const notifs = [];
+    // 1. Meal-window checks: if a food-like budget needs attention, warn
+    //    just before lunch (11:30) and dinner (5:30pm)
+    const meal = items.find(i => MEAL_CAT_RE.test(i.label) && i.status !== 'ok');
+    if (meal) {
+      const line = meal.status === 'over'
+        ? `${meal.label} is over budget by ${fmt(Math.abs(meal.left))} — maybe eat in?`
+        : `${meal.label} is ${meal.pct}% used — ${fmt(Math.max(0, meal.left))} left. Order wisely.`;
+      notifs.push({id: 3, title: '🍽 Before you eat', body: line, schedule: {at: nextDaily(11, 30)}});
+      notifs.push({id: 4, title: '🍽 Before you eat', body: line, schedule: {at: nextDaily(17, 30)}});
+    }
+    // 2. Weekday habits: remind on the usual day, with the current balance
+    detectHabits().slice(0, 12).forEach((h, idx) => {
+      const item = items.find(i => i.k === h.k);
+      if (!item) return;
+      const suffix = item.status === 'over' ? ' (already over budget!)'
+        : item.status === 'close' ? ' (almost spent)'
+        : item.status === 'ahead' ? ' (ahead of pace)'
+        : '';
+      notifs.push({
+        id: 100 + idx,
+        title: `💡 ${item.label} day?`,
+        body: `You've bought ${item.label} on the last ${h.count} ${DAY_NAMES[h.weekday]}s — ${fmt(Math.max(0, item.left))} left in that budget${suffix}`,
+        schedule: {at: nextOccurrence(h.weekday, h.hour)},
+      });
+    });
+    if (notifs.length) await LN.schedule({notifications: notifs});
+  } catch (e) {}
+}
+// Re-arm every kind of scheduled notification in one shot
+function rearmNotifications() {
+  scheduleBriefNotification();
+  scheduleSmartNotifications();
 }
 // ── HOME ──────────────────────────────────────────────────────────────────
 function renderHome() {
@@ -2074,7 +2174,23 @@ function renderSettings() {
           <option value="off" ${!s.notify?.spend ? 'selected' : ''}>Off</option>
           <option value="on"  ${s.notify?.spend  ? 'selected' : ''}>On</option>
         </select>
-      </div>` : `
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:${s.notify?.smart ? '8px' : '14px'}">
+        <div>
+          <div style="font-size:13px">Smart reminders</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:2px">Learns your habits (like gas every Monday) and checks food budgets before lunch &amp; dinner</div>
+        </div>
+        <select onchange="setNotify('smart', this.value==='on')" style="width:auto;padding:6px 10px;font-size:13px">
+          <option value="off" ${!s.notify?.smart ? 'selected' : ''}>Off</option>
+          <option value="on"  ${s.notify?.smart  ? 'selected' : ''}>On</option>
+        </select>
+      </div>
+      ${s.notify?.smart ? (() => {
+        const habits = detectHabits();
+        return `<div style="font-size:11px;color:var(--muted);margin-bottom:14px;line-height:1.5">${habits.length
+          ? '🔍 Detected: ' + habits.map(h => `${S.settings.cats[h.k]?.label} on ${DAY_NAMES[h.weekday]}s`).join(' · ')
+          : '🔍 No patterns yet — they show up after a few weeks of logging'}</div>`;
+      })() : ''}` : `
       <div style="font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.5">Scheduled notifications are available in the Android app. You can still preview the daily brief here.</div>`}
       <button class="btn btn-ghost" onclick="openBrief()">☀️ Preview daily brief</button>
     </div>
@@ -2554,7 +2670,7 @@ function addExpense() {
     const most = getMostRecentPayday();
     S.currentPeriod = newPeriodObj(most ? most.toISOString().slice(0,10) : todayISO(), {});
   }
-  S.currentPeriod.expenses.push({name, amount: amt, cat, date: isoToDisplay(dateISO), dateISO, ...(note && {note})});
+  S.currentPeriod.expenses.push({name, amount: amt, cat, date: isoToDisplay(dateISO), dateISO, loggedAt: new Date().toISOString(), ...(note && {note})});
   if (recur) {
     if (!Array.isArray(S.settings.recurring)) S.settings.recurring = [];
     S.settings.recurring.push({id: genId('rec'), name, amount: amt, cat, note, freq, nextISO: advanceDate(dateISO, freq)});
@@ -2614,7 +2730,7 @@ function quickAdd(i) {
     const most = getMostRecentPayday();
     S.currentPeriod = newPeriodObj(most ? most.toISOString().slice(0,10) : todayISO(), {});
   }
-  S.currentPeriod.expenses.push({name: q.name, amount: calcQuickAmt(q), cat: q.cat, date: todayStr(), dateISO: todayISO()});
+  S.currentPeriod.expenses.push({name: q.name, amount: calcQuickAmt(q), cat: q.cat, date: todayStr(), dateISO: todayISO(), loggedAt: new Date().toISOString()});
   save(); toast(`Added: ${q.name}`);
   checkBudgetAlert(q.cat);
   switchTab('home');
@@ -2843,10 +2959,10 @@ function initNative() {
   P.LocalNotifications?.addListener('localNotificationActionPerformed', (ev) => {
     if (ev?.notification?.id === 1 || ev?.notification?.extra?.brief) openBrief();
   });
-  // Refresh tomorrow's brief content whenever the app goes to the background,
-  // so the notification reflects the latest spending.
-  P.App?.addListener('appStateChange', (st) => { if (!st.isActive) scheduleBriefNotification(); });
-  scheduleBriefNotification();
+  // Refresh scheduled notification content whenever the app goes to the
+  // background, so everything reflects the latest spending.
+  P.App?.addListener('appStateChange', (st) => { if (!st.isActive) rearmNotifications(); });
+  rearmNotifications();
 }
 // ── BOOT ──────────────────────────────────────────────────────────────────
 load();
