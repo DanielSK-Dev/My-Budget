@@ -20,6 +20,7 @@
   --safe-bottom:env(safe-area-inset-bottom,0px);
 }
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html{color-scheme:dark} /* native pickers (date/time dialogs) render dark */
 html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--font);overflow:hidden;overscroll-behavior-y:none;position:fixed;width:100%;top:0;left:0}
 #app{display:flex;flex-direction:column;height:100vh;height:100dvh;width:100%}
 /* touch-action:pan-y — the browser handles vertical scrolling but leaves
@@ -182,13 +183,14 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 .bkd-cat-left.r{color:var(--red)}
 .field{display:flex;flex-direction:column;gap:6px;margin-bottom:12px}
 .field label{font-size:11px;color:var(--muted);letter-spacing:.06em;font-family:var(--font-mono)}
-input[type=text],input[type=number],input[type=date],select,textarea{
+input[type=text],input[type=number],input[type=date],input[type=time],select,textarea{
   background:var(--surface2);border:1px solid var(--border);border-radius:8px;
   color:var(--text);font-family:var(--font);font-size:16px;padding:12px 14px;
   width:100%;outline:none;transition:border-color .2s;-webkit-appearance:none;
 }
 textarea{resize:vertical;min-height:56px;line-height:1.45;font-size:14px}
-input[type=date]::-webkit-calendar-picker-indicator { filter: invert(1); opacity: 0.5; }
+input[type=date]::-webkit-calendar-picker-indicator,
+input[type=time]::-webkit-calendar-picker-indicator { filter: invert(1); opacity: 0.5; }
 input:focus,select:focus,textarea:focus{border-color:var(--green)}
 select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23666' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 14px center;padding-right:36px}
 select option{background:#1e1e1e}
@@ -391,7 +393,7 @@ details[open] > summary .summary-chevron {
 <div id="toast"></div>
 <script>
 // ── VERSION ───────────────────────────────────────────────────────────────
-const APP_VERSION = '1.21.1';
+const APP_VERSION = '1.21.2';
 // Tip-jar link (Ko-fi / Buy Me a Coffee / GitHub Sponsors). Shown in Settings
 // on the web/PWA only — never in the native Play Store build, where external
 // payment links violate Google Play's payments policy. Leave '' to hide.
@@ -1044,16 +1046,30 @@ function renderBrief() {
     </div>`;
 }
 // ── NOTIFICATIONS (native only) ───────────────────────────────────────────
-async function setNotify(field, val) {
+async function setNotify(field, val, el) {
   const n = S.settings.notify || (S.settings.notify = {brief: false, briefTime: '08:00', spend: false});
-  if ((field === 'brief' || field === 'spend') && val && isNative()) {
+  if ((field === 'brief' || field === 'spend' || field === 'smart') && val && isNative()) {
     try {
       const p = await window.Capacitor.Plugins.LocalNotifications.requestPermissions();
-      if (p.display !== 'granted') { toast('Allow notifications in system settings first'); val = false; }
-    } catch { val = false; }
+      if (p.display !== 'granted') {
+        toast('Allow notifications in system settings first');
+        val = false;
+        if (el) el.checked = false; // revert the switch without a re-render
+      }
+    } catch { val = false; if (el) el.checked = false; }
   }
   n[field] = val;
-  save(); render();
+  save();
+  // Update only the dependent bits of the card — a full render() here made
+  // every toggle feel like a page refresh.
+  if (field === 'brief') {
+    const t = document.getElementById('nb-time');
+    if (t) t.style.display = n.brief ? '' : 'none';
+  }
+  if (field === 'smart') {
+    const d = document.getElementById('nb-detected');
+    if (d) d.style.display = n.smart ? '' : 'none';
+  }
   rearmNotifications();
   if (field === 'brief' && n.brief) toast(`Daily brief scheduled for ${n.briefTime}`);
   if (field === 'smart' && n.smart) toast('Watching for spending patterns');
@@ -2154,38 +2170,37 @@ function renderSettings() {
     <div class="card">
       <div class="card-label">Notifications</div>
       ${isNative() ? `
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:${s.notify?.brief ? '10px' : '14px'}">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
         <div>
           <div style="font-size:13px">Daily brief</div>
           <div style="font-size:11px;color:var(--muted);margin-top:2px">Morning summary of where your budgets stand</div>
         </div>
-        <label class="tgl"><input type="checkbox" ${s.notify?.brief ? 'checked' : ''} onchange="setNotify('brief', this.checked)"/><span class="tgl-track"></span></label>
+        <label class="tgl"><input type="checkbox" ${s.notify?.brief ? 'checked' : ''} onchange="setNotify('brief', this.checked, this)"/><span class="tgl-track"></span></label>
       </div>
-      ${s.notify?.brief ? `
-      <div class="field" style="margin-bottom:14px">
+      <div class="field" id="nb-time" style="margin-bottom:14px;${s.notify?.brief ? '' : 'display:none'}">
         <label>Brief time</label>
-        <input type="time" value="${s.notify?.briefTime || '08:00'}" onchange="setNotify('briefTime', this.value)"/>
-      </div>` : ''}
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+        <input type="time" value="${s.notify?.briefTime || '08:00'}" onchange="setNotify('briefTime', this.value, this)"/>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
         <div>
           <div style="font-size:13px">Budget alerts</div>
           <div style="font-size:11px;color:var(--muted);margin-top:2px">Notify when a budget hits 80% or goes over</div>
         </div>
-        <label class="tgl"><input type="checkbox" ${s.notify?.spend ? 'checked' : ''} onchange="setNotify('spend', this.checked)"/><span class="tgl-track"></span></label>
+        <label class="tgl"><input type="checkbox" ${s.notify?.spend ? 'checked' : ''} onchange="setNotify('spend', this.checked, this)"/><span class="tgl-track"></span></label>
       </div>
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:${s.notify?.smart ? '8px' : '14px'}">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
         <div>
           <div style="font-size:13px">Smart reminders</div>
           <div style="font-size:11px;color:var(--muted);margin-top:2px">Learns your habits (like gas every Monday) and checks food budgets before lunch &amp; dinner</div>
         </div>
-        <label class="tgl"><input type="checkbox" ${s.notify?.smart ? 'checked' : ''} onchange="setNotify('smart', this.checked)"/><span class="tgl-track"></span></label>
+        <label class="tgl"><input type="checkbox" ${s.notify?.smart ? 'checked' : ''} onchange="setNotify('smart', this.checked, this)"/><span class="tgl-track"></span></label>
       </div>
-      ${s.notify?.smart ? (() => {
+      ${(() => {
         const habits = detectHabits();
-        return `<div style="font-size:11px;color:var(--muted);margin-bottom:14px;line-height:1.5">${habits.length
+        return `<div id="nb-detected" style="font-size:11px;color:var(--muted);margin-bottom:14px;line-height:1.5;${s.notify?.smart ? '' : 'display:none'}">${habits.length
           ? '🔍 Detected: ' + habits.map(h => `${S.settings.cats[h.k]?.label} on ${DAY_NAMES[h.weekday]}s`).join(' · ')
           : '🔍 No patterns yet — they show up after a few weeks of logging'}</div>`;
-      })() : ''}` : `
+      })()}` : `
       <div style="font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.5">Scheduled notifications are available in the Android app. You can still preview the daily brief here.</div>`}
       <button class="btn btn-ghost" onclick="openBrief()">☀️ Preview daily brief</button>
     </div>
