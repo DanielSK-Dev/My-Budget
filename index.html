@@ -161,6 +161,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 .ob-opt{display:block;width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:10px;padding:14px;font-size:15px;cursor:pointer;margin-bottom:8px;font-family:inherit;text-align:left}
 .ob-opt:last-child{margin-bottom:0}
 .ob-opt.sel{border-color:var(--green);color:var(--green)}
+.ob-chip{background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:20px;padding:7px 14px;font-size:13px;cursor:pointer;font-family:inherit}
+.ob-chip:active{border-color:var(--green);color:var(--green)}
 .cat-card summary{user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;touch-action:pan-y}
 .cat-card{transition:transform .15s ease}
 .cat-card.swiping{transition:none}
@@ -370,7 +372,7 @@ details[open] > summary .summary-chevron {
   <nav id="nav">
     <button class="nav-btn active" data-tab="home" onclick="switchTab('home')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M3 12L12 3l9 9M5 10v9a1 1 0 001 1h4v-5h4v5h4a1 1 0 001-1v-9"/></svg>
-      Period
+      Home
     </button>
     <button class="nav-btn" data-tab="cats" onclick="switchTab('cats')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
@@ -393,7 +395,7 @@ details[open] > summary .summary-chevron {
 <div id="toast"></div>
 <script>
 // ── VERSION ───────────────────────────────────────────────────────────────
-const APP_VERSION = '1.21.2';
+const APP_VERSION = '1.22.0';
 // Tip-jar link (Ko-fi / Buy Me a Coffee / GitHub Sponsors). Shown in Settings
 // on the web/PWA only — never in the native Play Store build, where external
 // payment links violate Google Play's payments policy. Leave '' to hide.
@@ -464,7 +466,9 @@ function load() {
     }
     if (S.currentPeriod && typeof S.currentPeriod.tithePaid === 'undefined')
       S.currentPeriod.tithePaid = false;
-    if (!S.settings.fixedCosts || !S.settings.fixedCosts.length)
+    // Array.isArray (not length) — a deliberately-empty list from the
+    // onboarding wizard must not resurrect the sample data
+    if (!Array.isArray(S.settings.fixedCosts))
       S.settings.fixedCosts = [...DEFAULT_FIXED];
     S.settings.fixedCosts.forEach(f => {
       if (!f.billingType) f.billingType = 'split';
@@ -472,14 +476,11 @@ function load() {
       if (!f.id) f.id = genId('fc');
       if (typeof f.cat === 'undefined') f.cat = '';
     });
-    if (!S.settings.quickAdds || !S.settings.quickAdds.length) {
-      S.settings.quickAdds = [...DEFAULT_QUICK];
-    } else {
-      S.settings.quickAdds.forEach(q => {
-        if (!q.amtType) q.amtType = 'fixed';
-        if (!q.color)   q.color   = S.settings.cats[q.cat]?.color || '#555555';
-      });
-    }
+    if (!Array.isArray(S.settings.quickAdds)) S.settings.quickAdds = [...DEFAULT_QUICK];
+    S.settings.quickAdds.forEach(q => {
+      if (!q.amtType) q.amtType = 'fixed';
+      if (!q.color)   q.color   = S.settings.cats[q.cat]?.color || '#555555';
+    });
     if (typeof S.settings.budgetAlerts === 'undefined') S.settings.budgetAlerts = true;
     if (!Array.isArray(S.settings.recurring)) S.settings.recurring = [];
     // Anyone with existing data never sees first-run onboarding
@@ -859,10 +860,10 @@ function shouldOnboard() {
   return !S.settings.onboarded && !S.settings.lastPayday && !S.currentPeriod && !(S.history||[]).length;
 }
 function renderOnboarding() {
-  if (!_obData) _obData = {payFreq: 'biweekly', lastPayday: todayISO(), income: ''};
-  const dots = `<div style="display:flex;gap:6px;justify-content:center;margin-bottom:24px">${[0,1,2].map(i =>
+  if (!_obData) _obData = {payFreq: 'biweekly', lastPayday: todayISO(), income: '', cats: [], recs: []};
+  const dots = `<div style="display:flex;gap:6px;justify-content:center;margin-bottom:24px">${[0,1,2,3,4].map(i =>
     `<div style="width:8px;height:8px;border-radius:4px;background:${i <= _obStep ? 'var(--green)' : 'var(--surface2)'}"></div>`).join('')}</div>`;
-  const skip = `<div style="text-align:center;margin-top:18px"><span onclick="obSkip()" style="color:var(--muted);font-size:13px;cursor:pointer;text-decoration:underline">Skip setup</span></div>`;
+  const skip = `<div style="text-align:center;margin-top:18px"><span onclick="obSkip()" style="color:var(--muted);font-size:13px;cursor:pointer;text-decoration:underline">Skip — explore with sample data</span></div>`;
   const back = `<button onclick="obBack()" style="background:none;border:none;color:var(--muted);font-size:13px;cursor:pointer;padding:10px 0 0;font-family:inherit">← Back</button>`;
 
   if (_obStep === 0) return `
@@ -894,22 +895,80 @@ function renderOnboarding() {
       </div>${skip}
     </div>`;
 
-  return `
+  if (_obStep === 2) return `
     <div style="padding-top:7vh">${dots}
       <div style="text-align:center;margin-bottom:28px">
         <h1 style="font-size:24px;font-weight:500">How much per paycheck?</h1>
-        <p style="color:var(--muted);font-size:14px;margin-top:8px;line-height:1.5">A rough number is fine — you can change it<br>anytime by tapping income on the Period tab.</p>
+        <p style="color:var(--muted);font-size:14px;margin-top:8px;line-height:1.5">A rough number is fine — you can change it<br>anytime by tapping income on the Home tab.</p>
       </div>
       <div class="card">
         <div class="field"><label>Paycheck amount ($) — optional</label>
           <input type="number" id="ob-income" value="${_obData.income}" placeholder="0.00" inputmode="decimal" min="0" step="0.01"/>
         </div>
-        <button class="btn btn-primary" onclick="obFinish()">Start my first period</button>
+        <button class="btn btn-primary" onclick="obIncomeNext()">Continue</button>
+        ${back}
+      </div>${skip}
+    </div>`;
+
+  if (_obStep === 3) return `
+    <div style="padding-top:4vh">${dots}
+      <div style="text-align:center;margin-bottom:20px">
+        <h1 style="font-size:24px;font-weight:500">Create your budgets</h1>
+        <p style="color:var(--muted);font-size:14px;margin-top:8px;line-height:1.5">Set a monthly amount per category —<br>it's split across your paychecks automatically.</p>
+      </div>
+      <div class="card">
+        <div style="font-size:11px;color:var(--muted);margin-bottom:8px">Need ideas? Tap one, then tweak the name or amount:</div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px">
+          ${[['Groceries',300],['Gas',150],['Eating out',200],['Entertainment',100],['Car',100],['Clothes',75]].map(([l,a]) =>
+            `<button class="ob-chip" onclick="obChip('${l}',${a})">${l}</button>`).join('')}
+        </div>
+        <div class="row-fields" style="margin-bottom:10px">
+          <div class="field"><label>Name</label><input type="text" id="ob-cat-name" placeholder="e.g. Groceries" maxlength="30"/></div>
+          <div class="field"><label>Monthly ($)</label><input type="number" id="ob-cat-amt" placeholder="0" inputmode="decimal" min="0"/></div>
+        </div>
+        <button class="btn btn-ghost" onclick="obAddCat()">+ Add this budget</button>
+        ${_obData.cats.length ? `<div style="margin-top:12px">${_obData.cats.map((c, i) => `
+          <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
+            <div class="pip" style="background:${OB_PALETTE[i % OB_PALETTE.length]};height:16px"></div>
+            <div style="flex:1;font-size:13px">${c.label}</div>
+            <div style="font-family:var(--font-mono);font-size:13px">${fmt(c.monthly)}/mo</div>
+            <button onclick="obDelCat(${i})" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:16px;padding:0 4px">×</button>
+          </div>`).join('')}</div>` : ''}
+        <button class="btn btn-primary" style="margin-top:14px" onclick="_obStep=4;render()">Continue</button>
         ${back}
       </div>
-      <div style="font-size:12px;color:var(--muted);text-align:center;margin-top:16px;line-height:1.5">We've added starter categories —<br>customize them in the Budgets tab.</div>
+      <div style="font-size:12px;color:var(--muted);text-align:center;margin-top:14px;line-height:1.5">You can rename, recolor, or adjust any budget later<br>in Budgets → Edit.</div>
+      ${skip}
+    </div>`;
+
+  return `
+    <div style="padding-top:4vh">${dots}
+      <div style="text-align:center;margin-bottom:20px">
+        <h1 style="font-size:24px;font-weight:500">Any recurring bills?</h1>
+        <p style="color:var(--muted);font-size:14px;margin-top:8px;line-height:1.5">Rent, phone bill, Netflix — anything charged<br>monthly. They're deducted automatically.</p>
+      </div>
+      <div class="card">
+        <div class="row-fields" style="margin-bottom:10px">
+          <div class="field"><label>Name</label><input type="text" id="ob-rec-name" placeholder="e.g. Rent" maxlength="50"/></div>
+          <div class="field"><label>Amount ($/mo)</label><input type="number" id="ob-rec-amt" placeholder="0" inputmode="decimal" min="0"/></div>
+        </div>
+        <div class="field" style="margin-bottom:10px"><label>Due day of month (1–31)</label>
+          <input type="number" id="ob-rec-day" placeholder="1" inputmode="numeric" min="1" max="31"/>
+        </div>
+        <button class="btn btn-ghost" onclick="obAddRec()">+ Add this bill</button>
+        ${_obData.recs.length ? `<div style="margin-top:12px">${_obData.recs.map((r, i) => `
+          <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
+            <div class="pip" style="background:#ffb347;height:16px"></div>
+            <div style="flex:1;font-size:13px">${r.name}</div>
+            <div style="font-family:var(--font-mono);font-size:13px">${fmt(r.monthly)}/mo · day ${r.billingDay}</div>
+            <button onclick="obDelRec(${i})" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:16px;padding:0 4px">×</button>
+          </div>`).join('')}</div>` : ''}
+        <button class="btn btn-primary" style="margin-top:14px" onclick="obFinish()">Finish setup</button>
+        ${back}
+      </div>${skip}
     </div>`;
 }
+const OB_PALETTE = ['#00e5a0','#4d9fff','#ffb347','#ff6b6b','#9f77dd','#00c97a','#ff4757','#c77f1a'];
 function obFreq(v) { _obData.payFreq = v; _obStep = 1; render(); }
 function obBack()  { _obStep = Math.max(0, _obStep - 1); render(); }
 function obNext()  {
@@ -917,12 +976,52 @@ function obNext()  {
   if (!d) { toast('Pick a date'); return; }
   _obData.lastPayday = d; _obStep = 2; render();
 }
+function obIncomeNext() {
+  _obData.income = document.getElementById('ob-income')?.value || '';
+  _obStep = 3; render();
+}
+function obChip(label, amt) {
+  const n = document.getElementById('ob-cat-name'), a = document.getElementById('ob-cat-amt');
+  if (n) n.value = label;
+  if (a) a.value = amt;
+  n?.focus();
+}
+function obAddCat() {
+  const name = document.getElementById('ob-cat-name')?.value?.trim();
+  const amt  = parseFloat(document.getElementById('ob-cat-amt')?.value);
+  if (!name)              { toast('Give it a name'); return; }
+  if (isNaN(amt) || amt <= 0) { toast('Enter a monthly amount'); return; }
+  _obData.cats.push({label: name, monthly: amt});
+  render();
+}
+function obDelCat(i) { _obData.cats.splice(i, 1); render(); }
+function obAddRec() {
+  const name = document.getElementById('ob-rec-name')?.value?.trim();
+  const amt  = parseFloat(document.getElementById('ob-rec-amt')?.value);
+  const day  = parseInt(document.getElementById('ob-rec-day')?.value);
+  if (!name)                    { toast('Give it a name'); return; }
+  if (isNaN(amt) || amt <= 0)   { toast('Enter a monthly amount'); return; }
+  if (isNaN(day) || day < 1 || day > 31) { toast('Enter a due day 1–31'); return; }
+  _obData.recs.push({name, monthly: amt, billingDay: day});
+  render();
+}
+function obDelRec(i) { _obData.recs.splice(i, 1); render(); }
 function obSkip()  { S.settings.onboarded = true; save(); render(); }
 function obFinish() {
-  const inc = parseFloat(document.getElementById('ob-income')?.value);
   S.settings.payFreq    = _obData.payFreq;
   S.settings.lastPayday = _obData.lastPayday;
   S.settings.onboarded  = true;
+  // The wizard was completed, so the app starts with exactly what the user
+  // built — the sample data only survives via "Skip".
+  const cats = {};
+  _obData.cats.forEach((c, i) => {
+    cats['cat_ob_' + i] = {label: c.label, color: OB_PALETTE[i % OB_PALETTE.length], monthly: c.monthly};
+  });
+  S.settings.cats = cats;
+  S.settings.quickAdds = [];
+  S.settings.fixedCosts = _obData.recs.map(r =>
+    ({id: genId('fc'), name: r.name, monthly: r.monthly, color: '#ffb347', billingType: 'date', billingDay: r.billingDay, cat: ''}));
+  const inc = parseFloat(_obData.income);
   const most = getMostRecentPayday();
   S.currentPeriod = newPeriodObj(most ? most.toISOString().slice(0,10) : todayISO(), {});
   if (!isNaN(inc) && inc > 0) S.currentPeriod.income = inc;
@@ -1214,7 +1313,7 @@ function rearmNotifications() {
 function renderHome() {
   const cp = S.currentPeriod;
   if (!cp) return `
-    <div class="page-header"><h1>Budget</h1></div>
+    <div class="page-header"><h1>Home</h1></div>
     <div class="card" style="text-align:center;padding:28px 16px">
       <div style="font-size:13px;color:var(--muted);margin-bottom:16px">No active period.<br>Set your payday in settings and start a period!</div>
       <button class="btn btn-primary" onclick="startPeriod()">Start pay period</button>
@@ -1240,9 +1339,9 @@ function renderHome() {
     const elapsedPct = Math.round(elapsed / totalMs * 100);
     const spentPct   = Math.min(100, Math.round(varSpent / spendable * 100));
     const diff       = spentPct - elapsedPct;
-    const verdict    = diff > 5  ? {label:'Ahead of pace', col:'var(--red)'}
-                     : diff < -5 ? {label:'Under pace',    col:'var(--green)'}
-                     :             {label:'On pace',       col:'var(--green)'};
+    const verdict    = diff > 5  ? {label:'Overspent',  col:'var(--red)'}
+                     : diff < -5 ? {label:'Underspent', col:'var(--green)'}
+                     :             {label:'On pace',    col:'var(--green)'};
     paceHtml = `
       <div class="hero-pace">
         <div class="hero-pace-track">
@@ -1327,7 +1426,7 @@ function renderHome() {
     </div>`;
   }).join('');
   return `
-    <div class="page-header"><h1>Budget</h1></div>
+    <div class="page-header"><h1>Home</h1></div>
     <div class="period-strip">
       <div>
         <div class="ps-label">Active period</div>
@@ -1338,7 +1437,7 @@ function renderHome() {
     <div class="hero-card">
       <div class="hero-halves">
         <div class="hero-half">
-          <div class="hero-lbl">To save</div>
+          <div class="hero-lbl">Unspent</div>
           <div class="hero-val ${remaining < 0 ? 'r' : 'g'}">${remaining < 0 ? '−' : ''}${fmt(Math.abs(remaining))}</div>
         </div>
         <div class="hero-half" style="padding-left:16px">
@@ -1364,11 +1463,11 @@ function renderHome() {
     <div class="card">
       <div class="card-label">Breakdown</div>
       <div class="bkd-row"><span class="bkd-op"> </span><span class="bkd-name">Income</span><span class="bkd-val">${fmt(income)}</span></div>
-      <div class="bkd-row"><span class="bkd-op">−</span><span class="bkd-name">Recurring &amp; subscriptions</span><span class="bkd-val">${fmt(fixed)}</span></div>
+      <div class="bkd-row"><span class="bkd-op">−</span><span class="bkd-name">Recurring</span><span class="bkd-val">${fmt(fixed)}</span></div>
       <div class="bkd-row"><span class="bkd-op">−</span><span class="bkd-name" style="display:flex;align-items:center">Giving ${titheBtn}</span><span class="bkd-val">${fmt(tithe)}</span></div>
       <div class="bkd-row"><span class="bkd-op">−</span><span class="bkd-name">Variable spent</span><span class="bkd-val">${fmt(varSpent)}</span></div>
       ${catsLeftRows ? `<div class="bkd-cats">${catsLeftRows}</div>` : ''}
-      <div class="bkd-row bkd-total"><span class="bkd-op">=</span><span class="bkd-name">To save</span><span class="bkd-val ${remaining < 0 ? 'r' : 'g'}">${remaining < 0 ? '−' : ''}${fmt(Math.abs(remaining))}</span></div>
+      <div class="bkd-row bkd-total"><span class="bkd-op">=</span><span class="bkd-name">Unspent</span><span class="bkd-val ${remaining < 0 ? 'r' : 'g'}">${remaining < 0 ? '−' : ''}${fmt(Math.abs(remaining))}</span></div>
     </div>
     <div class="card">
       <div class="card-label">Variable expenses</div>
@@ -1380,7 +1479,7 @@ function renderHome() {
         <div class="card-label" style="margin-bottom:0">Upcoming</div>
         <button class="hist-add-btn" onclick="switchTab('log')">＋ Plan</button>
       </div>
-      ${fixedRows ? `<div style="font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);font-family:var(--font-mono);margin-bottom:6px">Subscriptions</div>
+      ${fixedRows ? `<div style="font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);font-family:var(--font-mono);margin-bottom:6px">Recurring</div>
       ${fixedRows}
       <div style="font-size:10px;color:var(--muted);font-family:var(--font-mono);margin-top:8px;padding-bottom:${planned.length?'10':'0'}px;${planned.length?'border-bottom:1px solid var(--border)':''}">Tap box to mark paid · auto-marks once billing day passes</div>` : ''}
       ${planned.length ? `<div style="font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);font-family:var(--font-mono);margin:${fixedRows?'10':'0'}px 0 6px">Planned</div>
@@ -1389,7 +1488,7 @@ function renderHome() {
         <span class="sum-label">Projected savings</span>
         <span class="sum-val" style="color:${projInvest<0?'var(--red)':'var(--green)'}">${projInvest<0?'−':''}${fmt(projInvest)}</span>
       </div>` : ''}
-      ${!fixedRows && !planned.length ? '<div class="empty" style="padding:8px 0">No upcoming items · add subscriptions in Settings</div>' : ''}
+      ${!fixedRows && !planned.length ? '<div class="empty" style="padding:8px 0">No upcoming items · add recurring bills on the Add tab</div>' : ''}
     </div>
     <div class="card">
       <div class="card-label">Period notes</div>
@@ -1594,6 +1693,35 @@ function renderCats() {
       <button onclick="toggleCatsEdit()" style="background:none;border:1px solid var(--border);color:${_catsEditing?'var(--green)':'var(--muted)'};border-radius:8px;padding:6px 14px;font-size:13px;cursor:pointer;margin-top:4px;flex-shrink:0">${_catsEditing?'Done':'Edit'}</button>
     </div>
     ${cards || '<div class="card"><div class="empty">No spending tracked yet this period</div></div>'}
+    ${(() => {
+      // Uncategorized spending: tracked and shown, but no budget, surplus,
+      // or debt — it exists only as a record.
+      if (_catsEditing) return '';
+      const ux = (S.currentPeriod?.expenses||[]).filter(e => !e.cat || !cats[e.cat]);
+      if (!ux.length) return '';
+      const total = ux.reduce((a,e) => a + parseFloat(e.amount), 0);
+      const rows = ux.slice().reverse().map(e => `
+        <div class="hist-exp-row">
+          <span class="hist-exp-date">${e.date||''}</span>
+          <span class="hist-exp-name">${e.name}</span>
+          <span class="hist-exp-amt" ${parseFloat(e.amount)<0?'style="color:var(--green)"':''}>${fmtSigned(e.amount)}</span>
+        </div>`).join('');
+      return `<details class="cat-card" style="padding:0">
+        <summary style="padding:16px;outline:none;cursor:pointer;display:block">
+          <div class="cat-header">
+            <div class="pip" style="background:#6b7280;height:36px"></div>
+            <div class="cat-name">Uncategorized</div>
+            <div class="cat-rem" style="color:var(--muted)">${fmtSigned(total)}</div>
+            <span class="summary-chevron">▾</span>
+          </div>
+          <div style="font-size:11px;color:var(--muted);margin-top:8px">Tracked only — no budget, no rollover</div>
+        </summary>
+        <div class="hist-exps-list" style="padding:14px 16px 16px;margin-top:0">
+          <div style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:8px;font-family:var(--font-mono)">Transactions this period</div>
+          ${rows}
+        </div>
+      </details>`;
+    })()}
     ${_catsEditing ? `
     <div class="card" style="margin-top:8px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
@@ -1607,11 +1735,6 @@ function renderCats() {
 // ── ADD EXPENSE ───────────────────────────────────────────────────────────
 function renderLog() {
   const catOpts  = catOptionsHtml();
-  // Tip-jar target options — flag categories carrying debt so paying it off is easy
-  const tipCatOpts = Object.entries(S.settings.cats).map(([k,c]) => {
-    const debt = catDebt(k);
-    return `<option value="${k}">${c.label}${debt > 0 ? ` — ${fmt(debt)} debt` : ''}</option>`;
-  }).join('');
   const quickRows = (S.settings.quickAdds || []).map((q,i) => {
     const c   = S.settings.cats[q.cat] || {};
     const amt = calcQuickAmt(q);
@@ -1702,16 +1825,6 @@ function renderLog() {
       <button class="btn btn-primary" onclick="addExpense()">Add to this period</button>
     </div>
 
-    <div class="card" style="margin-top:12px">
-      <div class="card-label">💵 Cash tip / extra money</div>
-      <div style="font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.5">Add extra cash to a budget — it pays off any debt first, and the rest becomes spendable this period.</div>
-      <div class="row-fields">
-        <div class="field"><label>Amount ($)</label><input type="number" id="tip-amt" placeholder="0.00" inputmode="decimal" min="0" step="0.01"/></div>
-        <div class="field"><label>Add to</label><select id="tip-cat">${tipCatOpts}</select></div>
-      </div>
-      <button class="btn btn-primary" onclick="addBoost()">Add to budget</button>
-    </div>
-
     <div style="display:flex;align-items:center;justify-content:space-between;margin:20px 0 8px">
       <div class="sec-div" style="margin:0;flex:1">Quick add</div>
       <button onclick="toggleQuickEdit()" style="background:none;border:1px solid var(--border);color:${_quickEditing?'var(--green)':'var(--muted)'};border-radius:8px;padding:4px 12px;font-size:12px;cursor:pointer;flex-shrink:0">${_quickEditing?'Done':'Edit'}</button>
@@ -1727,7 +1840,7 @@ function renderLog() {
     ${!S.settings.fixedCosts?.length && !S.settings.recurring?.length
       ? '<div class="card"><div class="empty" style="padding:10px 0">No recurring items yet</div></div>'
       : ''}
-    <button class="add-btn" style="margin-top:8px" onclick="addFixed()">+ Add Subscription</button>
+    <button class="add-btn" style="margin-top:8px" onclick="addFixed()">+ Add Recurring</button>
 
 `;
 }
@@ -2026,7 +2139,7 @@ function buildSubCards(s) {
     const body = isOpen ? `<div class="rec-card-body">
       <div class="field" style="margin-top:10px">
         <label>Name</label>
-        <input type="text" value="${(f.name||'').replace(/"/g,'&quot;')}" placeholder="Subscription name" maxlength="50" onchange="updateFixed(${i},'name',this.value)"/>
+        <input type="text" value="${(f.name||'').replace(/"/g,'&quot;')}" placeholder="Name (e.g. Rent, Netflix)" maxlength="50" onchange="updateFixed(${i},'name',this.value)"/>
       </div>
       <div class="row-fields">
         <div class="field">
@@ -2059,8 +2172,8 @@ function buildSubCards(s) {
       </div>
     </div>` : '';
     const schedLabel = isDate
-      ? `Subscription · due day ${f.billingDay||1}`
-      : `Subscription · each period · ${fmt(perPd)}/pd`;
+      ? `Recurring · due day ${f.billingDay||1}`
+      : `Recurring · each period · ${fmt(perPd)}/pd`;
     return `<div class="rec-card">
       <div class="rec-card-head" onclick="openFcEdit(${i})">
         <div class="pip" style="background:${f.color||'#888'};height:32px"></div>
@@ -2238,7 +2351,7 @@ function renderSettings() {
     <!-- Danger zone — very bottom, below Clear Cache & Reload -->
     <div class="card" style="margin-bottom:0">
       <div class="card-label" style="color:var(--red)">Danger zone</div>
-      <div style="font-size:11px;color:var(--muted);margin-bottom:10px;line-height:1.5">Permanently deletes all budgets, subscriptions, history, and settings. This cannot be undone.</div>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:10px;line-height:1.5">Permanently deletes all budgets, recurring bills, history, and settings. This cannot be undone.</div>
       <button class="btn-sm danger" onclick="resetAll()">Reset all data</button>
     </div>`;
 }
@@ -2461,7 +2574,7 @@ function updateFixed(idx, field, val) {
   save();
 }
 function addFixed() {
-  S.settings.fixedCosts.push({id: genId('fc'), name: 'New Subscription', monthly: 0, color: '#ffb347', billingType: 'split', billingDay: 1, cat: ''});
+  S.settings.fixedCosts.push({id: genId('fc'), name: 'New Recurring', monthly: 0, color: '#ffb347', billingType: 'split', billingDay: 1, cat: ''});
   save(); render();
 }
 function delFixed(idx) {
@@ -2689,28 +2802,8 @@ function addExpense() {
   checkBudgetAlert(cat);
   switchTab('home');
 }
-function addBoost() {
-  const amt = parseFloat(document.getElementById('tip-amt')?.value);
-  const cat = document.getElementById('tip-cat')?.value;
-  if (isNaN(amt) || amt <= 0)        { toast('Enter a valid amount'); return; }
-  if (!cat || !S.settings.cats[cat]) { toast('Pick a category'); return; }
-  if (!S.currentPeriod) {
-    if (!confirm('No active period. Start one now?')) return;
-    const most = getMostRecentPayday();
-    S.currentPeriod = newPeriodObj(most ? most.toISOString().slice(0,10) : todayISO(), {});
-  }
-  if (!Array.isArray(S.currentPeriod.boosts)) S.currentPeriod.boosts = [];
-  const debtBefore = catDebt(cat);
-  S.currentPeriod.boosts.push({id: genId('tip'), cat, amount: amt, date: todayStr(), dateISO: todayISO()});
-  const label = S.settings.cats[cat].label;
-  const paid  = Math.min(debtBefore, amt);
-  save();
-  toast(paid > 0
-    ? (amt > paid ? `Paid off ${fmt(paid)} ${label} debt · +${fmt(amt - paid)} spendable`
-                  : `Paid ${fmt(paid)} toward ${label} debt`)
-    : `+${fmt(amt)} to ${label}`);
-  switchTab('cats');
-}
+// addBoost removed — negative expenses cover adding cash back to a budget.
+// boostsFor/delBoost remain so legacy tip data still displays and counts.
 function delBoost(id) {
   const b = (S.currentPeriod?.boosts || []).find(x => x.id === id);
   if (!b) return;
