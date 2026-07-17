@@ -20,10 +20,10 @@ Underspend a category and the surplus rolls into next period. Overspend and the 
 The Period view shows what you've spent, what's safe to spend, and what's left to save this paycheck — plus a spending pace indicator that tells you if you're ahead of or behind your budget for this point in the period.
 
 **Fast logging**
-Add an expense in a few taps, set up one-tap quick-adds for the things you buy all the time, and let recurring expenses log themselves. Refunds? Just enter a negative amount.
+Add an expense in a few taps, set up one-tap quick-adds for the things you buy all the time, and let recurring expenses log themselves. Refunds or extra cash? Just enter a negative amount and it flows back into the budget.
 
-**Cash tips & extra money**
-Got cash from a side gig or tips at work? Add it straight to a budget — it pays off any category debt first and the rest becomes spendable.
+**Daily brief & smart reminders**
+Get a morning summary of where your budgets stand, alerts when a budget is almost spent, and reminders that learn your habits — like a heads-up with your gas balance on the day you usually fill up.
 
 **Track subscriptions**
 Keep all your subscriptions in one place with billing dates, see the per-paycheck cost, and mark them paid as they hit.
